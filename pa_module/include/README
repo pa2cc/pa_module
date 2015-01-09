@@ -1,0 +1,4 @@
+Get the pulseaudio source from http://freedesktop.org/software/pulseaudio/releases/
+Copy the required include directories here and remove all non-header files.
+Check how your distro built the library - do a call to ./configure
+Copy config.h to here.
