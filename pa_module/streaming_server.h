@@ -4,6 +4,7 @@
 #include <QScopedPointer>
 #include <QtGlobal>
 
+#include <Tufao/HttpFileServer>
 #include <Tufao/HttpServer>
 #include <Tufao/HttpServerRequestRouter>
 
@@ -17,6 +18,7 @@ private:
 
     Tufao::HttpServer m_http_server;
     QScopedPointer<Tufao::HttpServerRequestRouter> m_router;
+    QScopedPointer<Tufao::HttpFileServer> m_file_server;
 
     Q_DISABLE_COPY(StreamingServer)
 };

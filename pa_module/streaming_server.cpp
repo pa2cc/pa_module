@@ -13,18 +13,27 @@
 
 #define HLS_SERVER_PORT 51348
 
-StreamingServer::StreamingServer() {
+StreamingServer::StreamingServer()
+    : m_file_server(new Tufao::HttpFileServer(OUT_PATH))
+{
     // Creates the master playlist.
     createMasterPlaylist();
 
-    // Starts the streaming server.
+    // Creates the file request handler.
+    Tufao::HttpServerRequestRouter::Handler file_handler =
+            [this](Tufao::HttpServerRequest &request,
+                   Tufao::HttpServerResponse &response)
+    {
+        // Adds the CORS header.
+        response.headers().insert("Access-Control-Allow-Origin", "*");
 
-    // FIXME: temporary fix for Tufao::HttpFileServer.
-    QString out_path =  QString(OUT_PATH)
-            .remove(QRegularExpression(QString(QDir::separator()) + '$'));
+        // Forwards the request to the file server.
+        return m_file_server->handleRequest(request, response);
+    };
 
+    // Sets up the request router.
     m_router.reset(new Tufao::HttpServerRequestRouter({
-        {QRegularExpression(""), Tufao::HttpFileServer::handler(out_path)},
+        {QRegularExpression(""), file_handler},
         {QRegularExpression(""), Tufao::NotFoundHandler::handler()}
     }));
 
@@ -32,7 +41,7 @@ StreamingServer::StreamingServer() {
                      m_router.data(),
                      &Tufao::HttpServerRequestRouter::handleRequest);
 
-    qDebug() << "Starting streaming server.";
+    // Starts the streaming server.
     bool ok = m_http_server.listen(QHostAddress::Any, HLS_SERVER_PORT);
     Q_ASSERT(ok && "Could not open the streaming server socket.");
 }
