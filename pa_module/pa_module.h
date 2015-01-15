@@ -12,7 +12,8 @@ extern "C" {
 #include <QScopedPointer>
 #include <QThread>
 
-class HttpServer;
+class ControlServer;
+class StreamingServer;
 class Writer;
 
 class PAModule : public QObject {
@@ -41,7 +42,8 @@ private:
 
     QThread m_main_thread;
 
-    QScopedPointer<HttpServer> m_http_server;
+    QScopedPointer<ControlServer> m_control_server;
+    QScopedPointer<StreamingServer> m_streaming_server;
     QScopedPointer<Writer> m_writer;
 };
 #endif // PA_MODULE_H

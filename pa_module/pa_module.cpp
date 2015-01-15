@@ -3,8 +3,9 @@
 #include <QDebug>
 #include <QThread>
 
-#include "http_server.h"
+#include "control_server.h"
 #include "pa_sink.h"
+#include "streaming_server.h"
 #include "writer_hls.h"
 
 PA_MODULE_AUTHOR("Sämy Zehnder");
@@ -59,8 +60,9 @@ void PAModule::exec() {
     QCoreApplication app(argc, NULL);
     m_application = &app;
 
-    // Starts the HTTP server.
-    m_http_server.reset(new HttpServer);
+    // Starts the servers.
+    m_control_server.reset(new ControlServer);
+    m_streaming_server.reset(new StreamingServer);
 
     app.exec();
 
@@ -84,8 +86,9 @@ PAModule::~PAModule() {
         m_main_thread.wait();
     }
 
-    // Stops the HTTP server.
-    m_http_server.reset();
+    // Stops the servers.
+    m_streaming_server.reset();
+    m_control_server.reset();
 
     // Stops the sink.
     PASink::instance().drop();

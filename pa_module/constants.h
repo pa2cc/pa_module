@@ -9,12 +9,8 @@
 #define MASTER_PLAYLIST_FILENAME "master.m3u8"
 #define PLAYLIST_FILENAME        "pacc.m3u8"
 
-// Must not end with a slash.
-#define HTTP_CONTROL_PREFIX      "/control"
-#define HTTP_CONTROL_STREAM_URL  HTTP_CONTROL_PREFIX "/streamUrl"
-
-#define HTTP_STREAM_PREFIX       "/stream"
-#define HTTP_MASTER_PLAYLIST_URL HTTP_STREAM_PREFIX "/" MASTER_PLAYLIST_FILENAME
+#define CONTROL_SERVER_PORT      51348
+#define STREAM_SERVER_PORT       51349
 
 #endif // CONSTANTS_H
 

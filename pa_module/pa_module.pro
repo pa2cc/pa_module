@@ -24,20 +24,18 @@ INCLUDEPATH += \
 
 HEADERS += \
     constants.h \
-    control_handler.h \
-    http_server.h \
+    control_server.h \
     pa_module.h\
     pa_sink.h \
-    streaming_handler.h \
+    streaming_server.h \
     writer.h \
     writer_hls.h \
 
 SOURCES += \
-    control_handler.cpp \
-    http_server.cpp \
+    control_server.cpp \
     pa_module.cpp \
     pa_sink.cpp \
-    streaming_handler.cpp \
+    streaming_server.cpp \
     writer_hls.cpp \
 
 unix {
