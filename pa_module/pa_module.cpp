@@ -61,8 +61,9 @@ void PAModule::exec() {
     m_application = &app;
 
     // Starts the servers.
-    m_control_server.reset(new ControlServer);
-    m_streaming_server.reset(new StreamingServer);
+    const QString &stream_secret = StreamingServer::generateStreamSecret();
+    m_control_server.reset(new ControlServer(stream_secret));
+    m_streaming_server.reset(new StreamingServer(stream_secret));
 
     app.exec();
 

@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QScopedPointer>
+#include <QString>
 #include <QtGlobal>
 
 #include <Tufao/HttpServer>
@@ -14,7 +15,7 @@ class ControlServer : public QObject {
     Q_OBJECT
 
 public:
-    ControlServer();
+    explicit ControlServer(const QString &stream_secret);
     virtual ~ControlServer();
 
 private slots:
@@ -25,6 +26,7 @@ private:
     Tufao::HttpServerRequestRouter::Handler handleRequest();
     Tufao::HttpServerRequestRouter::Handler streamInfoHandler();
 
+    QString m_stream_secret;
     Tufao::HttpServer m_http_server;
     Tufao::HttpServerRequestRouter m_router;
 

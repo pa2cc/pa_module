@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QFile>
+#include <QTime>
 #include <QUrl>
 
 #include <Tufao/HttpFileServer>
@@ -13,8 +14,11 @@
 
 #include "constants.h"
 
-StreamingServer::StreamingServer()
-    : m_file_server(new Tufao::HttpFileServer(OUT_PATH))
+#define DEFAULT_SECRET_LENGTH_B 32
+
+StreamingServer::StreamingServer(const QString &stream_secret)
+    : m_stream_secret(stream_secret)
+    , m_file_server(new Tufao::HttpFileServer(OUT_PATH))
 {
     // Creates the master playlist.
     createMasterPlaylist();
@@ -64,10 +68,85 @@ Tufao::HttpServerRequestRouter::Handler StreamingServer::handler() {
     return  [this](Tufao::HttpServerRequest &request,
                    Tufao::HttpServerResponse &response)
     {
-        // Adds the CORS header.
-        response.headers().insert("Access-Control-Allow-Origin", "*");
+        // TODO: Check if fileserver will handle this request.
 
-        // Forwards the request to the file server.
-        return m_file_server->handleRequest(request, response);
+        // Only adds CORS headers if the request contains an Origin header.
+        bool do_add_cors_header = request.headers().contains("Origin");
+        auto add_cors_header = [&response, do_add_cors_header]
+                (const QByteArray &key, const QByteArray &value) {
+            response.headers().insert(key, value);
+        };
+
+        // Adds the global CORS headers.
+        const QByteArray &origin = request.headers().value("Origin");
+        add_cors_header("Access-Control-Allow-Origin", origin);
+        //add_cors_header("Access-Control-Allow-Credentials", "true");
+        add_cors_header("Vary", "Origin");
+
+
+        // Handles the actual request.
+        if ("OPTIONS" == request.method()) {
+            // This is a CORS preflight request.
+
+            // Adds the Allow-Headers header if Request-Headers was set.
+            const QStringList &request_headers = QString::fromUtf8(
+                        request.headers().value(
+                            "Access-Control-Request-Headers"))
+                    .split(", ");
+            if (request_headers.contains("authorization")) {
+                add_cors_header("Access-Control-Allow-Headers", "authorization");
+            }
+
+            // Adds the Allow-Methods header if Request-Method was set.
+            if (request.headers().contains("Access-Control-Request-Method")) {
+                add_cors_header("Access-Control-Allow-Methods", "GET");
+            }
+
+            response.writeHead(Tufao::HttpResponseStatus::OK);
+            response.end();
+        } else if ("HEAD" == request.method() || "GET" == request.method()) {
+            // This is the actual request for a file.
+
+            // Checks if the authorization header is correct.
+            const QString &secret =
+                    QString::fromUtf8(request.headers().value("Authorization"));
+            if (secret != m_stream_secret) {
+                response.writeHead(Tufao::HttpResponseStatus::UNAUTHORIZED);
+                response.end();
+                return true;
+            }
+
+            // Forwards the request to the file server.
+            bool handled = m_file_server->handleRequest(request, response);
+            Q_ASSERT(handled); // We checked it at the beginning.
+        } else {
+            // Unknown method.
+            response.writeHead(Tufao::HttpResponseStatus::METHOD_NOT_ALLOWED);
+            response.headers().insert("Allow", "GET, HEAD, OPTIONS");
+            response.end();
+        }
+
+        return true;
     };
+}
+
+QString StreamingServer::generateStreamSecret() {
+    // Sets a seed for the random function.
+    static bool qrand_initialized = false;
+    if (!qrand_initialized) {
+        qsrand(QTime::currentTime().msec());
+        qrand_initialized = true;
+    }
+
+    // Generates the secret.
+    const QString chars(
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+
+    QString secret;
+    for(int i = 0; i < DEFAULT_SECRET_LENGTH_B; ++i) {
+        int index = qrand() % chars.length();
+        secret.append(chars[index]);
+    }
+
+    return secret;
 }
