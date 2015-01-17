@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>PACC</title>
+    <link rel="stylesheet" type="text/css" href="css/style.css">
+    <script type="text/javascript" src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js"></script>
+    <script src="sender.js"></script>
+</head>
+
+<body style="margin: 0 auto; width: 50%;">
+<div>
+    <h2 style="display:block">PACC</h2>
+
+    <div style="padding:10px; border:1px solid #000; background-color:#ccf;">
+        <input type="button" name="show" value="Show Receiver Debug Message on TV" onclick="showReceiverDebugMessage();"> 
+        <input type="button" name="hide" value="Hide Receiver Debug Message on TV" onclick="hideReceiverDebugMessage();"> 
+    </div>
+    <br>
+    <div>
+        <div style="padding:10px; border:1px solid #000;">
+            <div style="border:0px solid #000; font-size:90%; display:block;">
+                <div style="font-size:100%; font-weight:bold;">Media Control</div>
+                <button style="margin:5px; font-size:90%;" onclick="loadMedia()">(Re)Load Media</button>
+                <button style="margin:5px; font-size:90%;" id="playpauseresume" onclick="playMedia()">Play Media</button>
+                <button style="margin:5px; font-size:90%;" onclick="stopMedia()">Stop Media</button>
+                <span style="margin:5px; font-size:80%;" id="muteText">Mute media</span>
+                <input style="margin:5px;" type="checkbox" onclick="muteMedia(this);"> 
+                <div style="width:98%; margin:5px; border:0px solid #000;">
+                    <div style="width:160px; border:0px solid #00f;">
+                        State : <span id="playerstate">IDLE</span>
+                    </div>
+                    <div style="width:150px; border:0px solid #00f;">
+                        <span id="duration"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="width:100px; border:0px solid #000;">
+                Volume:
+                <input type="range" min="0" max="100" step="1" onmouseup="setReceiverVolume(1-this.value/100,false);"/>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+
+</html>
