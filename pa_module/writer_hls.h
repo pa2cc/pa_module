@@ -16,7 +16,7 @@ public:
     HLSWriter();
     virtual ~HLSWriter();
 
-    ssize_t write(const void *buf, size_t count);
+    ssize_t write(const void *buf, size_t count) override;
 
 private:
     AVFormatContext *m_context;
