@@ -49,6 +49,11 @@ bool ControlServer::handleRequest(Tufao::HttpServerRequest &request,
         return true;
     }
 
+    // Adds the CORS header.
+    if (request.headers().contains("Origin")) {
+        response.headers().insert(
+                    "Access-Control-Allow-Origin", CORS_ALLOW_ORIGIN);
+    }
     return m_router.handleRequest(request, response);
 }
 

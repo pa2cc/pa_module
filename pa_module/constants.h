@@ -12,5 +12,11 @@
 #define CONTROL_SERVER_PORT      51348
 #define STREAM_SERVER_PORT       51349
 
+#ifdef QT_DEBUG
+#define CORS_ALLOW_ORIGIN "dev.pacc.gorrion.ch"
+#else
+#define CORS_ALLOW_ORIGIN "pacc.gorrion.ch"
+#endif
+
 #endif // CONSTANTS_H
 

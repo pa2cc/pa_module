@@ -78,9 +78,7 @@ Tufao::HttpServerRequestRouter::Handler StreamingServer::handler() {
         };
 
         // Adds the global CORS headers.
-        const QByteArray &origin = request.headers().value("Origin");
-        add_cors_header("Access-Control-Allow-Origin", origin);
-        //add_cors_header("Access-Control-Allow-Credentials", "true");
+        add_cors_header("Access-Control-Allow-Origin", CORS_ALLOW_ORIGIN);
         add_cors_header("Vary", "Origin");
 
 
