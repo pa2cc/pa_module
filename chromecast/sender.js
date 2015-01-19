@@ -36,6 +36,11 @@ var CONTROL_URL = 'http://localhost:51348';
 var streamInfo = null;
 
 /**
+ * The volume listener.
+ */
+var volumeListener = null;
+
+/**
  * * Current media session
  * */
 var currentMedia = null;
@@ -106,9 +111,13 @@ function onStopAppSuccess() {
 function sessionListener(e) {
     console.log('New session ID: ' + e.sessionId);
     session = e;
-    if (session.media.length != 0) {
-        console.log('Found ' + session.media.length + ' existing media sessions.');
-        onMediaDiscovered('sessionListener', session.media[0]);
+
+    // Stops all running media.
+    for (var i = 0; i < session.media.length; ++i) {
+        session.media[i].stop(
+            null,
+            mediaCommandSuccessCallback.bind(this, 'stopped ' + session.media[i].sessionId),
+            onError);
     }
 
     loadStreamInfo();
@@ -212,13 +221,17 @@ function loadStreamInfo() {
 
         streamInfo = JSON.parse(this.responseText);
 
+        if (!volumeListener) {
+            volumeListener = new VolumeListener();
+            volumeListener.start();
+        }
+
         loadMedia();
     };
     xhr.onerror = function(ev) {
         console.log('Could not get the stream info!');
     };
     xhr.send();
-
 }
 
 /**
@@ -353,48 +366,6 @@ function setReceiverVolume(level, mute) {
         session.setReceiverMuted(true,
                                  mediaCommandSuccessCallback.bind(this, 'media set-volume done'),
                                  onError);
-    }
-}
-
-/**
- * set media volume
- * @param {Number} level A number for volume level
- * @param {Boolean} mute A true/false for mute/unmute
- * @this setMediaVolume
- */
-function setMediaVolume(level, mute) {
-    if (!currentMedia) {
-        return;
-    }
-
-    var volume = new chrome.cast.Volume();
-    volume.level = level;
-    currentVolume = volume.level;
-    volume.muted = mute;
-
-    var request = new chrome.cast.media.VolumeRequest();
-    request.volume = volume;
-    currentMedia.setVolume(request,
-                           mediaCommandSuccessCallback.bind(this, 'media set-volume done'),
-                           onError);
-}
-
-/**
- * mute media
- * @param {DOM Object} cb A checkbox element
- */
-function muteMedia(cb) {
-    if (cb.checked == true) {
-        document.getElementById('muteText').innerHTML = 'Unmute media';
-        //setMediaVolume(currentVolume, true);
-        setReceiverVolume(currentVolume, true);
-        console.log('media muted');
-    }
-    else {
-        document.getElementById('muteText').innerHTML = 'Mute media';
-        //setMediaVolume(currentVolume, false);
-        setReceiverVolume(currentVolume, false);
-        console.log('media unmuted');
     }
 }
 

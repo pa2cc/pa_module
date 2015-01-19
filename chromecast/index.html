@@ -6,6 +6,7 @@
     <link rel="stylesheet" type="text/css" href="css/style.css">
     <script type="text/javascript" src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js"></script>
     <script src="sender.js"></script>
+    <script src="volume_listener.js"></script>
 </head>
 
 <body style="margin: 0 auto; width: 50%;">
@@ -38,7 +39,7 @@
 
             <div style="width:100px; border:0px solid #000;">
                 Volume:
-                <input type="range" min="0" max="100" step="1" onmouseup="setReceiverVolume(1-this.value/100,false);"/>
+                <input type="range" min="0" max="100" step="1" onmouseup="setReceiverVolume(this.value/100,false);"/>
             </div>
         </div>
     </div>
