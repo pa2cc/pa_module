@@ -25,22 +25,21 @@ static const char* const valid_modargs[] = {
     NULL
 };
 
-static int sink_process_msg_cb(pa_msgobject *o, int code, void *data,
-                               int64_t offset, pa_memchunk *chunk) {
-    return PASink::instance().sink_process_msg(o, code, data, offset, chunk);
+static int sinkProcessMsgCb(pa_msgobject *o, int code, void *data,
+                            int64_t offset, pa_memchunk *chunk) {
+    return PASink::instance().sinkProcessMsg(o, code, data, offset, chunk);
 }
-static void sink_update_requested_latency_cb(pa_sink *s) {
-    PASink::instance().sink_update_requested_latency(s);
+static void sinkUpdateRequestedLatencyCb(pa_sink *s) {
+    PASink::instance().sinkUpdateRequestedLatency(s);
 }
-static void thread_func_cb(void *self) {
-    ((PASink *)self)->thread_func();
+static void threadFuncCb(void *self) {
+    ((PASink *)self)->threadFunc();
 }
-static void sink_input_event_cb(pa_core *core,
-                                pa_subscription_event_type_t event_type,
-                                uint32_t idx, void *self) {
+static void sinkEventCb(pa_core *core, pa_subscription_event_type_t event_type,
+                        uint32_t idx, void *self) {
     Q_UNUSED(core);
 
-    ((PASink *)self)->sink_input_event(event_type, idx);
+    ((PASink *)self)->sinkEvent(event_type, idx);
 }
 
 PASink::PASink()
@@ -118,8 +117,8 @@ int PASink::init(pa_module *m, Writer *writer) {
         goto fail;
     }
 
-    m_sink->parent.process_msg = sink_process_msg_cb;
-    m_sink->update_requested_latency = sink_update_requested_latency_cb;
+    m_sink->parent.process_msg = sinkProcessMsgCb;
+    m_sink->update_requested_latency = sinkUpdateRequestedLatencyCb;
 
     pa_sink_set_asyncmsgq(m_sink, m_thread_mq.inq);
     pa_sink_set_rtpoll(m_sink, m_rtpoll);
@@ -130,7 +129,7 @@ int PASink::init(pa_module *m, Writer *writer) {
     pa_sink_set_max_rewind(m_sink, nbytes);
     pa_sink_set_max_request(m_sink, nbytes);
 
-    if (!(m_thread = pa_thread_new("pacc-sink", thread_func_cb, this))) {
+    if (!(m_thread = pa_thread_new("pacc-sink", threadFuncCb, this))) {
         pa_log("Failed to create thread.");
         goto fail;
     }
@@ -140,9 +139,9 @@ int PASink::init(pa_module *m, Writer *writer) {
     // Subscribes us to events on the sink.
     m_event_subscription = pa_subscription_new(m_module->core,
                                                PA_SUBSCRIPTION_MASK_SINK,
-                                               sink_input_event_cb, this);
+                                               sinkEventCb, this);
     // Initial volume read.
-    update_volume(true);
+    updateVolume(true);
 
     pa_modargs_free(ma);
 
@@ -185,8 +184,8 @@ PASink::~PASink() {
     }
 }
 
-int PASink::sink_process_msg(pa_msgobject *o, int code, void *data,
-                                   int64_t offset, pa_memchunk *chunk) {
+int PASink::sinkProcessMsg(pa_msgobject *o, int code, void *data,
+                           int64_t offset, pa_memchunk *chunk) {
     switch (code) {
         case PA_SINK_MESSAGE_GET_LATENCY: {
             pa_usec_t now = pa_rtclock_now();
@@ -198,16 +197,15 @@ int PASink::sink_process_msg(pa_msgobject *o, int code, void *data,
     return pa_sink_process_msg(o, code, data, offset, chunk);
 }
 
-void PASink::sink_input_event(pa_subscription_event_type_t event_type,
-                              uint32_t idx) {
+void PASink::sinkEvent(pa_subscription_event_type_t event_type, uint32_t idx) {
     if (m_sink->index != idx || event_type != PA_SUBSCRIPTION_EVENT_CHANGE) {
         return;
     }
 
-    update_volume(false);
+    updateVolume(false);
 }
 
-void PASink::update_volume(bool force_update) {
+void PASink::updateVolume(bool force_update) {
     // Reads the mute state.
     bool is_muted = pa_sink_get_mute(m_sink, force_update);
 
@@ -224,7 +222,7 @@ void PASink::update_volume(bool force_update) {
     m_volume_notifier->updateValue(volume_percent);
 }
 
-void PASink::sink_update_requested_latency(pa_sink *s) {
+void PASink::sinkUpdateRequestedLatency(pa_sink *s) {
     pa_sink_assert_ref(s);
 
     m_block_usec = pa_sink_get_requested_latency_within_thread(s);
@@ -238,7 +236,7 @@ void PASink::sink_update_requested_latency(pa_sink *s) {
     pa_sink_set_max_request_within_thread(s, nbytes);
 }
 
-void PASink::process_rewind(pa_usec_t now) {
+void PASink::processRewind(pa_usec_t now) {
     size_t rewind_nbytes = m_sink->thread_info.rewind_nbytes;
 
     if (!PA_SINK_IS_OPENED(m_sink->thread_info.state) || rewind_nbytes <= 0 ||
@@ -269,7 +267,7 @@ do_nothing:
     pa_sink_process_rewind(m_sink, 0);
 }
 
-void PASink::process_render(pa_usec_t now) {
+void PASink::processRender(pa_usec_t now) {
     /* This is the configured latency. Sink inputs connected to us
     might not have a single frame more than the maxrequest value
     queued. Hence: at maximum read this many bytes from the sink
@@ -298,7 +296,7 @@ void PASink::process_render(pa_usec_t now) {
     }
 }
 
-void PASink::thread_func() {
+void PASink::threadFunc() {
     pa_log_debug("Sink thread starting up");
 
     pa_thread_mq_install(&m_thread_mq);
@@ -312,13 +310,13 @@ void PASink::thread_func() {
         }
 
         if (PA_UNLIKELY(m_sink->thread_info.rewind_requested)) {
-            process_rewind(now);
+            processRewind(now);
         }
 
         /* Render some data and write it to the fifo */
         if (PA_SINK_IS_OPENED(m_sink->thread_info.state)) {
             if (m_timestamp <= now) {
-                process_render(now);
+                processRender(now);
             }
 
             pa_rtpoll_set_timer_absolute(m_rtpoll, m_timestamp);
@@ -346,7 +344,7 @@ finish:
     pa_log_debug("Sink thread shutting down");
 }
 
-ChangeNotifier<int> *PASink::volume_notifier() const {
+ChangeNotifier<int> *PASink::volumeNotifier() const {
     return m_volume_notifier.data();
 }
 

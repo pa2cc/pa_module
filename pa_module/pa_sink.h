@@ -20,19 +20,18 @@ public:
     static PASink &instance();
     void drop();
 
-    ChangeNotifier<int> *volume_notifier() const;
+    ChangeNotifier<int> *volumeNotifier() const;
 
-    int sink_process_msg(pa_msgobject *o, int code, void *data, int64_t offset,
-                         pa_memchunk *chunk);
-    void sink_update_requested_latency(pa_sink *s);
-    void sink_input_event(pa_subscription_event_type_t event_type,
-                          uint32_t idx);
-    void thread_func();
+    int sinkProcessMsg(pa_msgobject *o, int code, void *data, int64_t offset,
+                       pa_memchunk *chunk);
+    void sinkUpdateRequestedLatency(pa_sink *s);
+    void sinkEvent(pa_subscription_event_type_t event_type, uint32_t idx);
+    void threadFunc();
 
 private:
-    void process_render(pa_usec_t now);
-    void process_rewind(pa_usec_t now);
-    void update_volume(bool force_update);
+    void processRender(pa_usec_t now);
+    void processRewind(pa_usec_t now);
+    void updateVolume(bool force_update);
 
 
     friend class QScopedPointerDeleter<PASink>;
