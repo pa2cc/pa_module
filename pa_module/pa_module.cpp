@@ -1,6 +1,5 @@
 #include "pa_module.h"
 
-#include <QDebug>
 #include <QThread>
 
 #include "control_server.h"
@@ -62,7 +61,9 @@ void PAModule::exec() {
 
     // Starts the servers.
     const QString &stream_secret = StreamingServer::generateStreamSecret();
-    m_control_server.reset(new ControlServer(stream_secret));
+    m_control_server.reset(new ControlServer(
+                               stream_secret,
+                               PASink::instance().volume_notifier()));
     m_streaming_server.reset(new StreamingServer(stream_secret));
 
     app.exec();

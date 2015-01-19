@@ -7,6 +7,7 @@ extern "C" {
 #include <pulsecore/namereg.h>
 } // extern "C"
 
+#include "change_notifier.h"
 #include "constants.h"
 #include "writer.h"
 
@@ -34,6 +35,13 @@ static void sink_update_requested_latency_cb(pa_sink *s) {
 static void thread_func_cb(void *self) {
     ((PASink *)self)->thread_func();
 }
+static void sink_input_event_cb(pa_core *core,
+                                pa_subscription_event_type_t event_type,
+                                uint32_t idx, void *self) {
+    Q_UNUSED(core);
+
+    ((PASink *)self)->sink_input_event(event_type, idx);
+}
 
 PASink::PASink()
     : m_module(NULL)
@@ -42,12 +50,16 @@ PASink::PASink()
     , m_sink(NULL)
     , m_thread(NULL)
     , m_rtpoll(NULL)
+
+    , m_event_subscription(NULL)
 {
 }
 
 int PASink::init(pa_module *m, Writer *writer) {
     pa_assert_se(m_module = m);
     pa_assert_se(m_writer = writer);
+
+    m_volume_notifier.reset(new ChangeNotifier<int>);
 
     pa_modargs *ma = pa_modargs_new(m_module->argument, valid_modargs);
     if (!ma) {
@@ -125,6 +137,13 @@ int PASink::init(pa_module *m, Writer *writer) {
 
     pa_sink_put(m_sink);
 
+    // Subscribes us to events on the sink.
+    m_event_subscription = pa_subscription_new(m_module->core,
+                                               PA_SUBSCRIPTION_MASK_SINK,
+                                               sink_input_event_cb, this);
+    // Initial volume read.
+    update_volume(true);
+
     pa_modargs_free(ma);
 
     return 0;
@@ -139,6 +158,10 @@ fail:
 PASink::~PASink() {
     if (!m_module) {
         return;
+    }
+
+    if (m_event_subscription) {
+        pa_subscription_free(m_event_subscription);
     }
 
     if (m_sink) {
@@ -173,6 +196,32 @@ int PASink::sink_process_msg(pa_msgobject *o, int code, void *data,
     }
 
     return pa_sink_process_msg(o, code, data, offset, chunk);
+}
+
+void PASink::sink_input_event(pa_subscription_event_type_t event_type,
+                              uint32_t idx) {
+    if (m_sink->index != idx || event_type != PA_SUBSCRIPTION_EVENT_CHANGE) {
+        return;
+    }
+
+    update_volume(false);
+}
+
+void PASink::update_volume(bool force_update) {
+    // Reads the mute state.
+    bool is_muted = pa_sink_get_mute(m_sink, force_update);
+
+    int volume_percent = -1;
+    if (!is_muted) {
+        // Reads the volume and calculates the average percent.
+        const pa_cvolume *volumes = pa_sink_get_volume(m_sink, force_update);
+        pa_volume_t avg_volume = pa_cvolume_avg(volumes);
+        volume_percent =  (double)(avg_volume - PA_VOLUME_MUTED) /
+                (PA_VOLUME_NORM - PA_VOLUME_MUTED) * 100.0d;
+    }
+
+    // Sets the new volume.
+    m_volume_notifier->updateValue(volume_percent);
 }
 
 void PASink::sink_update_requested_latency(pa_sink *s) {
@@ -295,6 +344,10 @@ fail:
 
 finish:
     pa_log_debug("Sink thread shutting down");
+}
+
+ChangeNotifier<int> *PASink::volume_notifier() const {
+    return m_volume_notifier.data();
 }
 
 QScopedPointer<PASink> PASink::m_instance(NULL);

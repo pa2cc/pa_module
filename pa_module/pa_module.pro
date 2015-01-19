@@ -23,6 +23,7 @@ INCLUDEPATH += \
     include/ \
 
 HEADERS += \
+    change_notifier.h \
     constants.h \
     control_server.h \
     pa_module.h\

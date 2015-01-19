@@ -11,11 +11,14 @@
 #include <Tufao/HttpServerRequestRouter>
 #include <Tufao/HttpServerResponse>
 
+template<class T> class ChangeNotifier;
+
 class ControlServer : public QObject {
     Q_OBJECT
 
 public:
-    explicit ControlServer(const QString &stream_secret);
+    ControlServer(const QString &stream_secret,
+                  ChangeNotifier<int> *volume_notifier);
     virtual ~ControlServer();
 
 private slots:
@@ -25,10 +28,13 @@ private slots:
 private:
     Tufao::HttpServerRequestRouter::Handler handleRequest();
     Tufao::HttpServerRequestRouter::Handler streamInfoHandler();
+    Tufao::HttpServerRequestRouter::Handler volumeInfoHandler();
 
     QString m_stream_secret;
     Tufao::HttpServer m_http_server;
     Tufao::HttpServerRequestRouter m_router;
+
+    ChangeNotifier<int> *m_volume_notifier;
 
     Q_DISABLE_COPY(ControlServer)
 };
