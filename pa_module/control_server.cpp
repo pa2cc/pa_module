@@ -9,7 +9,6 @@
 #include <QJsonObject>
 #include <QNetworkInterface>
 #include <QUrlQuery>
-#include <QTimer>
 
 #include "Tufao/Headers"
 #include "Tufao/HttpServerRequest"

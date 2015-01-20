@@ -30,6 +30,8 @@ HEADERS += \
     pa_sink.h \
     streaming_server.h \
     writer.h \
+    writer_adts.h \
+    writer_base.h \
     writer_hls.h \
 
 SOURCES += \
@@ -38,6 +40,8 @@ SOURCES += \
     pa_module.cpp \
     pa_sink.cpp \
     streaming_server.cpp \
+    writer_adts.cpp \
+    writer_base.cpp \
     writer_hls.cpp \
 
 unix {

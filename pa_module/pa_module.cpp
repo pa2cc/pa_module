@@ -5,7 +5,7 @@
 #include "control_server.h"
 #include "pa_sink.h"
 #include "streaming_server.h"
-#include "writer_hls.h"
+#include "writer_adts.h"
 
 PA_MODULE_AUTHOR("Sämy Zehnder");
 PA_MODULE_DESCRIPTION("PACC");
@@ -37,7 +37,7 @@ int PAModule::init(pa_module *m) {
     pa_assert_se(m_module = m);
 
     // Initializes the writer.
-    m_writer.reset(new HLSWriter);
+    m_writer.reset(new ADTSWriter);
 
     // Initializes the sink.
     PASink::instance().init(m_module, m_writer.data());
