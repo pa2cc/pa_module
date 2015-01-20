@@ -31,10 +31,10 @@ private:
     Tufao::HttpServerRequestRouter::Handler volumeInfoHandler();
 
     QString m_stream_secret;
+    ChangeNotifier<int> *m_volume_notifier;
+
     Tufao::HttpServer m_http_server;
     Tufao::HttpServerRequestRouter m_router;
-
-    ChangeNotifier<int> *m_volume_notifier;
 
     Q_DISABLE_COPY(ControlServer)
 };

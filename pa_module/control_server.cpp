@@ -3,13 +3,13 @@
 #include <algorithm>
 
 #include <QByteArray>
-#include <QDebug>
 #include <QHostAddress>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkInterface>
 #include <QUrlQuery>
+#include <QTimer>
 
 #include "Tufao/Headers"
 #include "Tufao/HttpServerRequest"
@@ -125,32 +125,35 @@ Tufao::HttpServerRequestRouter::Handler ControlServer::volumeInfoHandler() {
             known_volume_percent = -2;
         }
 
-        // We wait if the known volume is not different.
-        int volume_percent;
-        ok = m_volume_notifier->waitForUpdate(known_volume_percent,
-                                              VOLUME_MAX_WAIT_MS,
-                                              &volume_percent);
+        // Handlers.
+        ChangeNotifier<int>::update_f on_update = [this, &response]() {
+            int volume_percent = m_volume_notifier->value();
 
-        if (!ok) {
-            // A timeout occured.
+            // Creates the JSON reply.
+            QJsonObject volume_info;
+            volume_info.insert("muted", volume_percent == -1);
+            volume_info.insert("volume_percent", std::max(0, volume_percent));
+
+            QByteArray body = QJsonDocument(volume_info)
+                    .toJson(QJsonDocument::Compact);
+
+            // Writes the reply.
+            response.writeHead(Tufao::HttpResponseStatus::OK);
+            response.headers().insert("Content-Type", "application/json");
+            response.write(body);
+            response.end();
+        };
+
+        ChangeNotifier<int>::timeout_f on_timeout = [&response]() {
             response.writeHead(Tufao::HttpResponseStatus::NO_CONTENT);
             response.end();
-            return true;
-        }
+        };
 
-        // Creates the JSON reply.
-        QJsonObject volume_info;
-        volume_info.insert("muted", volume_percent == -1);
-        volume_info.insert("volume_percent", std::max(0, volume_percent));
+        // We wait if the known volume is not different.
+        m_volume_notifier->waitForUpdate(known_volume_percent,
+                                         VOLUME_MAX_WAIT_MS,
+                                         on_update, on_timeout);
 
-        QByteArray body = QJsonDocument(volume_info)
-                .toJson(QJsonDocument::Compact);
-
-        // Writes the reply.
-        response.writeHead(Tufao::HttpResponseStatus::OK);
-        response.headers().insert("Content-Type", "application/json");
-        response.write(body);
-        response.end();
         return true;
     };
 }

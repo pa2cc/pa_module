@@ -33,6 +33,7 @@ HEADERS += \
     writer_hls.h \
 
 SOURCES += \
+    change_notifier.cpp \
     control_server.cpp \
     pa_module.cpp \
     pa_sink.cpp \
