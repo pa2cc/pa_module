@@ -490,7 +490,7 @@ onload = function() {
             // Advanced Playback - HLS
             // Player registers to listen to the media element events through the
             // mediaHost property of the  mediaElement
-            protocol = cast.player.api.CreateHlsStreamingProtocol(mediaHost);
+            protocol = cast.player.api.CreateHlsStreamingProtocol(mediaHost, cast.player.api.HlsSegmentFormat.MPEG_AUDIO_ES);
             mediaPlayer = new cast.player.api.Player(mediaHost);
             mediaPlayer.load(protocol, Infinity);
 
