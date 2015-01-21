@@ -5,10 +5,13 @@
 
 #include "constants.h"
 
-#define HLS_TIME_PER_SEGMENT_S 1
-#define HLS_LIST_SIZE 3
-#define HLS_WRAP HLS_LIST_SIZE*2 + 2
-#define HLS_TS_FILENAME_TEMPLATE "pacc_%03d.ts"
+namespace {
+const int kHlsTimePerSegmentS = 1;
+const int kHlsListSize = 3;
+const int kHlsWrap = kHlsListSize*2 + 2;
+const char kHlsTsFilenameTemplate[] = "pacc_%03d.ts";
+} // namespace
+
 
 static AVDictionary *format_options() {
     // Sets the segment format options.
@@ -18,22 +21,24 @@ static AVDictionary *format_options() {
     Q_ASSERT(ret >= 0 && "Could not set property");
     ret = av_dict_set(&options, "segment_list_type", "hls", 0);
     Q_ASSERT(ret >= 0 && "Could not set property");
-    ret = av_dict_set(&options, "segment_list", OUT_PATH PLAYLIST_FILENAME, 0);
+    ret = av_dict_set(&options, "segment_list", QString("%1%2").arg(
+                          Stream::kOutPath, Stream::kPlaylistFilename)
+                      .toStdString().data(), 0);
     Q_ASSERT(ret >= 0 && "Could not set property");
-    ret = av_dict_set_int(&options, "segment_time", HLS_TIME_PER_SEGMENT_S, 0);
+    ret = av_dict_set_int(&options, "segment_time", kHlsTimePerSegmentS, 0);
     Q_ASSERT(ret >= 0 && "Could not set property");
     ret = av_dict_set(&options, "segment_list_flags", "live", 0);
     Q_ASSERT(ret >= 0 && "Could not set property");
-    ret = av_dict_set_int(&options, "segment_list_size", HLS_LIST_SIZE, 0);
+    ret = av_dict_set_int(&options, "segment_list_size", kHlsListSize, 0);
     Q_ASSERT(ret >= 0 && "Could not set property");
-    ret = av_dict_set_int(&options, "segment_wrap", HLS_WRAP, 0);
+    ret = av_dict_set_int(&options, "segment_wrap", kHlsWrap, 0);
     Q_ASSERT(ret >= 0 && "Could not set property");
 
     return options;
 }
 
 ADTSWriter::ADTSWriter()
-    : BaseWriter("segment", OUT_PATH HLS_TS_FILENAME_TEMPLATE, AV_CODEC_ID_AAC,
-                 format_options())
+    : BaseWriter("segment", QString(Stream::kOutPath) + kHlsTsFilenameTemplate,
+                 AV_CODEC_ID_AAC, format_options())
 {
 }

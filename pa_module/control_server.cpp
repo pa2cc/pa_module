@@ -18,10 +18,13 @@
 #include "constants.h"
 #include "change_notifier.h"
 
-#define STREAM_INFO_PATH "/streamInfo"
-#define VOLUME_INFO_PATH "/volumeInfo"
+namespace {
+const char kStreamInfoPath[] = "/streamInfo";
+const char kVolumeInfoPath[] = "/volumeInfo";
 
-#define VOLUME_MAX_WAIT_MS 50000
+const int kVolumeMaxWaitMs = 50000; // 50s
+} // namespace
+
 
 ControlServer::ControlServer(const QString &stream_secret,
                              ChangeNotifier<int> *volume_notifier)
@@ -29,10 +32,10 @@ ControlServer::ControlServer(const QString &stream_secret,
     , m_volume_notifier(volume_notifier)
 {
     // Sets up the request router.
-    m_router.map({QRegularExpression("^" STREAM_INFO_PATH "(/|$)"), "GET",
-                  streamInfoHandler()});
-    m_router.map({QRegularExpression("^" VOLUME_INFO_PATH "(/|$)"), "GET",
-                  volumeInfoHandler()});
+    m_router.map({QRegularExpression(QString("^%1(/|$)").arg(kStreamInfoPath)),
+                  "GET", streamInfoHandler()});
+    m_router.map({QRegularExpression(QString("^%1(/|$)").arg(kVolumeInfoPath)),
+                  "GET", volumeInfoHandler()});
     m_router.map({QRegularExpression(""), Tufao::NotFoundHandler::handler()});
 
     bool (ControlServer:: *request_handler)(
@@ -43,7 +46,8 @@ ControlServer::ControlServer(const QString &stream_secret,
                      this, request_handler);
 
     // Starts the HTTP server.
-    bool ok = m_http_server.listen(QHostAddress::Any, CONTROL_SERVER_PORT);
+    bool ok =
+            m_http_server.listen(QHostAddress::Any, Stream::kControlServerPort);
     Q_ASSERT(ok && "Could not open the control server socket.");
 }
 
@@ -62,7 +66,7 @@ bool ControlServer::handleRequest(Tufao::HttpServerRequest &request,
     // Adds the CORS header.
     if (request.headers().contains("Origin")) {
         response.headers().insert(
-                    "Access-Control-Allow-Origin", CORS_ALLOW_ORIGIN);
+                    "Access-Control-Allow-Origin", CORS::kAllowOrigin);
     }
     return m_router.handleRequest(request, response);
 }
@@ -81,8 +85,8 @@ static QJsonArray streamUrls() {
                     : QString("[%1]").arg(address.toString());
         QString stream_url = QString("http://%1:%2/%3")
                 .arg(address_str)
-                .arg(STREAM_SERVER_PORT)
-                .arg(MASTER_PLAYLIST_FILENAME);
+                .arg(Stream::kStreamServerPort)
+                .arg(Stream::kMasterPlaylistFilename);
         stream_urls.append(stream_url);
     }
 
@@ -149,8 +153,7 @@ Tufao::HttpServerRequestRouter::Handler ControlServer::volumeInfoHandler() {
         };
 
         // We wait if the known volume is not different.
-        m_volume_notifier->waitForUpdate(known_volume_percent,
-                                         VOLUME_MAX_WAIT_MS,
+        m_volume_notifier->waitForUpdate(known_volume_percent, kVolumeMaxWaitMs,
                                          on_update, on_timeout);
 
         return true;

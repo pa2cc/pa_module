@@ -11,11 +11,12 @@ extern "C" {
 #include "constants.h"
 #include "writer.h"
 
-#define DEFAULT_SINK_NAME "PACC bridge"
-#define BLOCK_USEC (PA_USEC_PER_SEC * 2)
-#define SAMPLE_FORMAT PA_SAMPLE_FLOAT32NE
+namespace {
+const char kDefaultSinkName[] = "PACC bridge";
+const pa_usec_t kBlocUsec = 2 * PA_USEC_PER_SEC;
+const pa_sample_format_t kSampleFormat = PA_SAMPLE_FLOAT32NE;
 
-static const char* const valid_modargs[] = {
+const char* const kValidModargs[] = {
     "sink_name",
     "sink_properties",
     "master",
@@ -24,23 +25,15 @@ static const char* const valid_modargs[] = {
     "channel_map",
     NULL
 };
+} // namespace
 
 static int sinkProcessMsgCb(pa_msgobject *o, int code, void *data,
-                            int64_t offset, pa_memchunk *chunk) {
-    return PASink::instance().sinkProcessMsg(o, code, data, offset, chunk);
-}
-static void sinkUpdateRequestedLatencyCb(pa_sink *s) {
-    PASink::instance().sinkUpdateRequestedLatency(s);
-}
-static void threadFuncCb(void *self) {
-    ((PASink *)self)->threadFunc();
-}
+                            int64_t offset, pa_memchunk *chunk);
+static void sinkUpdateRequestedLatencyCb(pa_sink *s);
+static void threadFuncCb(void *self);
 static void sinkEventCb(pa_core *core, pa_subscription_event_type_t event_type,
-                        uint32_t idx, void *self) {
-    Q_UNUSED(core);
+                        uint32_t idx, void *self);
 
-    ((PASink *)self)->sinkEvent(event_type, idx);
-}
 
 PASink::PASink()
     : m_module(NULL)
@@ -60,27 +53,25 @@ int PASink::init(pa_module *m, Writer *writer) {
 
     m_volume_notifier.reset(new ChangeNotifier<int>);
 
-    pa_modargs *ma = pa_modargs_new(m_module->argument, valid_modargs);
+    pa_modargs *ma = pa_modargs_new(m_module->argument, kValidModargs);
     if (!ma) {
         pa_log("Failed to parse module arguments.");
         goto fail;
     }
 
     pa_channel_map map;
-#if NUM_CANNELS == 1
-    pa_channel_map_init_mono(&map);
-#elif NUM_CANNELS == 2
-    pa_channel_map_init_stereo(&map);
-#else
-    Q_ASSERT(false);
-#endif
+    switch (Audio::kNumChannels) {
+        case 1: pa_channel_map_init_mono(&map); break;
+        case 2: pa_channel_map_init_stereo(&map); break;
 
+        default: Q_ASSERT(false);
+    }
 
     // Initializes the sample specs.
     pa_sample_spec ss;
     pa_sample_spec_init(&ss);
-    ss.format = SAMPLE_FORMAT;
-    ss.rate = SAMPLE_RATE_HZ;
+    ss.format = kSampleFormat;
+    ss.rate = Audio::kSampleRateHz;
     ss.channels = map.channels;
     pa_assert(pa_sample_spec_valid(&ss));
 
@@ -95,7 +86,7 @@ int PASink::init(pa_module *m, Writer *writer) {
     sink_data.module = m_module;
     pa_sink_new_data_set_name(
                 &sink_data,
-                pa_modargs_get_value(ma, "sink_name", DEFAULT_SINK_NAME));
+                pa_modargs_get_value(ma, "sink_name", kDefaultSinkName));
     pa_proplist_setf(sink_data.proplist, PA_PROP_DEVICE_DESCRIPTION, "PACC");
     pa_sink_new_data_set_sample_spec(&sink_data, &ss);
     pa_sink_new_data_set_channel_map(&sink_data, &map);
@@ -123,7 +114,7 @@ int PASink::init(pa_module *m, Writer *writer) {
     pa_sink_set_asyncmsgq(m_sink, m_thread_mq.inq);
     pa_sink_set_rtpoll(m_sink, m_rtpoll);
 
-    m_block_usec = BLOCK_USEC;
+    m_block_usec = kBlocUsec;
     size_t nbytes;
     nbytes = pa_usec_to_bytes(m_block_usec, &m_sink->sample_spec);
     pa_sink_set_max_rewind(m_sink, nbytes);
@@ -184,8 +175,12 @@ PASink::~PASink() {
     }
 }
 
-int PASink::sinkProcessMsg(pa_msgobject *o, int code, void *data,
-                           int64_t offset, pa_memchunk *chunk) {
+int sinkProcessMsgCb(pa_msgobject *o, int code, void *data, int64_t offset,
+                     pa_memchunk *chunk) {
+    return PASink::instance().onSinkProcessMsg(o, code, data, offset, chunk);
+}
+int PASink::onSinkProcessMsg(pa_msgobject *o, int code, void *data,
+                             int64_t offset, pa_memchunk *chunk) {
     switch (code) {
         case PA_SINK_MESSAGE_GET_LATENCY: {
             pa_usec_t now = pa_rtclock_now();
@@ -197,7 +192,13 @@ int PASink::sinkProcessMsg(pa_msgobject *o, int code, void *data,
     return pa_sink_process_msg(o, code, data, offset, chunk);
 }
 
-void PASink::sinkEvent(pa_subscription_event_type_t event_type, uint32_t idx) {
+void sinkEventCb(pa_core *core, pa_subscription_event_type_t event_type,
+                 uint32_t idx, void *self) {
+    Q_UNUSED(core);
+    ((PASink *)self)->onSinkEvent(event_type, idx);
+}
+void PASink::onSinkEvent(pa_subscription_event_type_t event_type,
+                         uint32_t idx) {
     if (m_sink->index != idx || event_type != PA_SUBSCRIPTION_EVENT_CHANGE) {
         return;
     }
@@ -222,7 +223,10 @@ void PASink::updateVolume(bool force_update) {
     m_volume_notifier->updateValue(volume_percent);
 }
 
-void PASink::sinkUpdateRequestedLatency(pa_sink *s) {
+void sinkUpdateRequestedLatencyCb(pa_sink *s) {
+    PASink::instance().onSinkUpdateRequestedLatency(s);
+}
+void PASink::onSinkUpdateRequestedLatency(pa_sink *s) {
     pa_sink_assert_ref(s);
 
     m_block_usec = pa_sink_get_requested_latency_within_thread(s);
@@ -296,6 +300,9 @@ void PASink::processRender(pa_usec_t now) {
     }
 }
 
+void threadFuncCb(void *self) {
+    ((PASink *)self)->threadFunc();
+}
 void PASink::threadFunc() {
     pa_log_debug("Sink thread starting up");
 

@@ -1,7 +1,5 @@
 #include "pa_module.h"
 
-#include <QThread>
-
 #include "control_server.h"
 #include "pa_sink.h"
 #include "streaming_server.h"

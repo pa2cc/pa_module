@@ -29,7 +29,7 @@ static void debug_cb(void *avcl, int level, const char *fmt, va_list vl) {
 BaseWriter::BaseWriter(const QString &out_format, const QString &out_filename,
                        AVCodecID audio_codec, AVDictionary *format_options) {
     // Creates the output path if it does not exist yet.
-    Q_ASSERT(QDir().mkpath(OUT_PATH) &&
+    Q_ASSERT(QDir().mkpath(Stream::kOutPath) &&
              "Could not create the output directory.");
 
     // Initializes libavcodec and registers all codecs and formats.
@@ -112,8 +112,8 @@ BaseWriter::~BaseWriter() {
     avformat_free_context(m_context);
 
     // Removes the temporary files.
-    QDir dir(OUT_PATH);
-    dir.setNameFilters({PLAYLIST_FILENAME, "*.ts"});
+    QDir dir(Stream::kOutPath);
+    dir.setNameFilters({Stream::kPlaylistFilename, "*.ts"});
     dir.setFilter(QDir::Files);
     foreach(QString file, dir.entryList()) {
         dir.remove(file);
@@ -133,16 +133,15 @@ AVStream *add_audio_stream(AVFormatContext *context, AVCodecID codec_id) {
 
     // Puts sample parameters */
     AVCodecContext *c = stream->codec;
-    c->bit_rate = BIT_RATE_BPS;
-    c->sample_rate = SAMPLE_RATE_HZ;
+    c->bit_rate = Audio::kBitRateBps;
+    c->sample_rate = Audio::kSampleRateHz;
     c->sample_fmt = AV_SAMPLE_FMT_FLTP;
-#if NUM_CANNELS == 1
-    c->channel_layout = AV_CH_LAYOUT_MONO;
-#elif NUM_CHANNELS == 2
-    c->channel_layout = AV_CH_LAYOUT_STEREO;
-#else
-    Q_ASSERT(false);
-#endif
+    switch (Audio::kNumChannels) {
+        case 1: c->channel_layout = AV_CH_LAYOUT_MONO; break;
+        case 2: c->channel_layout = AV_CH_LAYOUT_STEREO; break;
+
+        default: Q_ASSERT(false);
+    }
     c->channels = av_get_channel_layout_nb_channels(c->channel_layout);
     c->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
 

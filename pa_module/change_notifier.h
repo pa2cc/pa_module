@@ -39,7 +39,7 @@ public:
     virtual ~ChangeNotifier() {}
 
     void updateValue(const T &value);
-    void waitForUpdate(const T &known_value, unsigned long max_wait_ms,
+    void waitForUpdate(const T &known_value, int max_wait_ms,
                        update_f on_update, timeout_f on_timeout);
     const T &value() const;
 
@@ -79,8 +79,7 @@ void ChangeNotifier<T>::updateValue(const T &value) {
 }
 
 template<class T>
-void ChangeNotifier<T>::waitForUpdate(const T &known_value,
-                                      unsigned long max_wait_ms,
+void ChangeNotifier<T>::waitForUpdate(const T &known_value, int max_wait_ms,
                                       update_f on_update,
                                       timeout_f on_timeout) {
     Q_ASSERT(on_update);

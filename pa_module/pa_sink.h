@@ -22,10 +22,10 @@ public:
 
     ChangeNotifier<int> *volumeNotifier() const;
 
-    int sinkProcessMsg(pa_msgobject *o, int code, void *data, int64_t offset,
-                       pa_memchunk *chunk);
-    void sinkUpdateRequestedLatency(pa_sink *s);
-    void sinkEvent(pa_subscription_event_type_t event_type, uint32_t idx);
+    int onSinkProcessMsg(pa_msgobject *o, int code, void *data, int64_t offset,
+                         pa_memchunk *chunk);
+    void onSinkUpdateRequestedLatency(pa_sink *s);
+    void onSinkEvent(pa_subscription_event_type_t event_type, uint32_t idx);
     void threadFunc();
 
 private:

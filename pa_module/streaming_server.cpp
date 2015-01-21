@@ -14,11 +14,13 @@
 
 #include "constants.h"
 
-#define DEFAULT_SECRET_LENGTH_B 32
+namespace {
+const int kDefaultSecretLengthB = 32;
+} // namespace
 
 StreamingServer::StreamingServer(const QString &stream_secret)
     : m_stream_secret(stream_secret)
-    , m_file_server(new Tufao::HttpFileServer(OUT_PATH))
+    , m_file_server(new Tufao::HttpFileServer(Stream::kOutPath))
 {
     // Creates the master playlist.
     createMasterPlaylist();
@@ -31,23 +33,24 @@ StreamingServer::StreamingServer(const QString &stream_secret)
                      &m_router, &Tufao::HttpServerRequestRouter::handleRequest);
 
     // Starts the HTTP server.
-    bool ok = m_http_server.listen(QHostAddress::Any, STREAM_SERVER_PORT);
+    bool ok =
+            m_http_server.listen(QHostAddress::Any, Stream::kStreamServerPort);
     Q_ASSERT(ok && "Could not open the streaming server socket.");
 }
 
 StreamingServer::~StreamingServer() {
     // Removes the master playlist and the out-directory (if present)
-    QFile().remove(OUT_PATH MASTER_PLAYLIST_FILENAME);
-    QDir(OUT_PATH).rmpath(OUT_PATH);
+    QFile().remove(QString(Stream::kOutPath) + Stream::kMasterPlaylistFilename);
+    QDir().rmpath(Stream::kOutPath);
 }
 
 void StreamingServer::createMasterPlaylist() {
     // Creates the output path if it does not exist yet.
-    Q_ASSERT(QDir().mkpath(OUT_PATH) &&
+    Q_ASSERT(QDir().mkpath(Stream::kOutPath) &&
              "Could not create the output directory.");
 
     // Opens the master playlist file.
-    QFile f(OUT_PATH MASTER_PLAYLIST_FILENAME);
+    QFile f(QString(Stream::kOutPath) + Stream::kMasterPlaylistFilename);
     bool ok = f.open(QIODevice::WriteOnly);
     Q_ASSERT(ok && "Could not open the master playlist file");
 
@@ -56,8 +59,8 @@ void StreamingServer::createMasterPlaylist() {
                 "#EXTM3U\n"
                 "#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=%1,CODECS=\"mp4a.40.2\"\n"
                 "%2")
-            .arg(BIT_RATE_BPS)
-            .arg(PLAYLIST_FILENAME);
+            .arg(Audio::kBitRateBps)
+            .arg(Stream::kPlaylistFilename);
     f.write(contents.toUtf8());
 
     // Closes the file.
@@ -78,7 +81,7 @@ Tufao::HttpServerRequestRouter::Handler StreamingServer::handler() {
         };
 
         // Adds the global CORS headers.
-        add_cors_header("Access-Control-Allow-Origin", CORS_ALLOW_ORIGIN);
+        add_cors_header("Access-Control-Allow-Origin", CORS::kAllowOrigin);
         add_cors_header("Vary", "Origin");
 
 
@@ -92,7 +95,8 @@ Tufao::HttpServerRequestRouter::Handler StreamingServer::handler() {
                             "Access-Control-Request-Headers"))
                     .split(", ");
             if (request_headers.contains("authorization")) {
-                add_cors_header("Access-Control-Allow-Headers", "authorization");
+                add_cors_header(
+                            "Access-Control-Allow-Headers", "authorization");
             }
 
             // Adds the Allow-Methods header if Request-Method was set.
@@ -137,11 +141,11 @@ QString StreamingServer::generateStreamSecret() {
     }
 
     // Generates the secret.
-    const QString chars(
-                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+    const QString chars("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+                        "0123456789");
 
     QString secret;
-    for(int i = 0; i < DEFAULT_SECRET_LENGTH_B; ++i) {
+    for(int i = 0; i < kDefaultSecretLengthB; ++i) {
         int index = qrand() % chars.length();
         secret.append(chars[index]);
     }

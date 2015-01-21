@@ -1,22 +1,28 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-#define SAMPLE_RATE_HZ 44100
-#define BIT_RATE_BPS   128000
-#define NUM_CANNELS    1
+namespace Audio {
+const int kSampleRateHz = 44100;
+const int kBitRateBps   = 128000;
+const int kNumChannels  = 1;
+} // namespace Audio
 
-#define OUT_PATH                 "/tmp/pacc/"
-#define MASTER_PLAYLIST_FILENAME "master.m3u8"
-#define PLAYLIST_FILENAME        "pacc.m3u8"
+namespace Stream {
+const char kOutPath[]                = "/tmp/pacc/";
+const char kMasterPlaylistFilename[] = "master.m3u8";
+const char kPlaylistFilename[]       = "pacc.m3u8";
 
-#define CONTROL_SERVER_PORT      51348
-#define STREAM_SERVER_PORT       51349
+const int kControlServerPort = 51348;
+const int kStreamServerPort  = 51349;
+} // namespace Stream
 
+namespace CORS {
 #ifdef QT_DEBUG
-#define CORS_ALLOW_ORIGIN "http://dev.pacc.gorrion.ch"
+const char kAllowOrigin[] = "http://dev.pacc.gorrion.ch";
 #else
-#define CORS_ALLOW_ORIGIN "http://pacc.gorrion.ch"
+const char kAllowOrigin[] = "http://pacc.gorrion.ch";
 #endif
+} // namespace CORS
 
 #endif // CONSTANTS_H
 
