@@ -12,6 +12,10 @@ extern "C" {
 
 #include "constants.h"
 
+namespace {
+const AVSampleFormat kSampleFormat = AV_SAMPLE_FMT_FLTP;
+} // namespace
+
 static AVStream *add_audio_stream(AVFormatContext *context, AVCodecID codec_id);
 
 static void debug_cb(void *avcl, int level, const char *fmt, va_list vl) {
@@ -25,6 +29,7 @@ static void debug_cb(void *avcl, int level, const char *fmt, va_list vl) {
     line.remove(QRegExp("\\n$"));
     qDebug() << QString("PACC: %1").arg(line);
 }
+
 
 BaseWriter::BaseWriter(const QString &out_format, const QString &out_filename,
                        AVCodecID audio_codec, AVDictionary *format_options) {
@@ -64,7 +69,7 @@ BaseWriter::BaseWriter(const QString &out_format, const QString &out_filename,
                             NULL);
     Q_ASSERT(ret >= 0 && "Could not open codec");
 
-    // Frame containing input raw audio.
+    // Creates the frame containing input raw audio.
     m_frame = av_frame_alloc();
     Q_ASSERT(m_frame && "Could not allocate audio frame");
 
@@ -72,25 +77,9 @@ BaseWriter::BaseWriter(const QString &out_format, const QString &out_filename,
     m_frame->nb_samples = audio_context->frame_size;
     m_frame->format = audio_context->sample_fmt;
     m_frame->channel_layout = audio_context->channel_layout;
-
-    // The codec gives us the frame size, in samples, we calculate the size of
-    // the samples buffer in bytes.
-    m_samples_size = av_samples_get_buffer_size(NULL, audio_context->channels,
-                                                audio_context->frame_size,
-                                                audio_context->sample_fmt,
-                                                0);
-    Q_ASSERT(m_samples_size >= 0 &&  "Could not get the sample buffer size");
-
-    // Initializes the sample buffer.
-    m_samples = av_malloc(m_samples_size);
-    Q_ASSERT(m_samples && "Could not allocate the samples buffer");
-
-    // Sets up the data pointers in the AVFrame.
-    ret = avcodec_fill_audio_frame(m_frame, audio_context->channels,
-                                   audio_context->sample_fmt,
-                                   (const uint8_t*)m_samples, m_samples_size,
-                                   0);
-    Q_ASSERT(ret >= 0 && "Could not setup audio frame");
+    ret = av_frame_get_buffer(m_frame, 0);
+    Q_ASSERT(ret >= 0 && "Could not alloc the frame buffer");
+    m_num_bytes_in_frame = 0;
 
     // Initializes the output media and writes the stream header.
     AVDictionary **options = format_options ? &format_options : NULL;
@@ -105,7 +94,6 @@ BaseWriter::~BaseWriter() {
 
     // Closes the codec.
     avcodec_close(m_audio_stream->codec);
-    av_freep(m_samples);
     av_frame_free(&m_frame);
 
     // Frees the format context.
@@ -135,7 +123,7 @@ AVStream *add_audio_stream(AVFormatContext *context, AVCodecID codec_id) {
     AVCodecContext *c = stream->codec;
     c->bit_rate = Audio::kBitRateBps;
     c->sample_rate = Audio::kSampleRateHz;
-    c->sample_fmt = AV_SAMPLE_FMT_FLTP;
+    c->sample_fmt = kSampleFormat;
     switch (Audio::kNumChannels) {
         case 1: c->channel_layout = AV_CH_LAYOUT_MONO; break;
         case 2: c->channel_layout = AV_CH_LAYOUT_STEREO; break;
@@ -153,38 +141,52 @@ AVStream *add_audio_stream(AVFormatContext *context, AVCodecID codec_id) {
     return stream;
 }
 
-ssize_t BaseWriter::write(const void *buf, size_t count) {
-    // TODO: Remove the copy by only appending if necessary.
-    m_buffer.append((const char *)buf, count);
+static void writeFrame(AVFormatContext *context, AVCodecContext *codec,
+                       AVFrame *frame) {
+    // Initializes the sound packet.
+    AVPacket pkt;
+    av_init_packet(&pkt);
+    pkt.data = NULL;
+    pkt.size = 0;
 
-    if (m_buffer.size() < m_samples_size) {
-        // There is not enough data to write the next frame.
-        return count;
+    // Encodes the samples.
+    int got_output;
+    int ret = avcodec_encode_audio2(codec, &pkt, frame, &got_output);
+    Q_ASSERT(ret >= 0 && "Error encoding audio frame");
+
+    // Writes the frame (if we got some output).
+    if (got_output) {
+        ret = av_interleaved_write_frame(context, &pkt);
+        Q_ASSERT(ret >= 0 && "Error while writing audio frame");
     }
+}
 
-    while (m_buffer.size() >= m_samples_size) {
-        // Initializes the sound packet.
-        AVPacket pkt;
-        av_init_packet(&pkt);
-        pkt.data = NULL; // The packet data will be allocated by the encoder.
-        pkt.size = 0;
+ssize_t BaseWriter::write(const void *buf, size_t count) {
+    const int sample_size_b =
+            av_get_bytes_per_sample(m_audio_stream->codec->sample_fmt);
+    const size_t frame_size_b = m_frame->linesize[0];
 
-        //debug(QString("Buffer size: %1\n").arg(m_buffer.size()));
+    // The data must be aligned and the frame buffer not be overrun.
+    Q_ASSERT(count % sample_size_b == 0);
+    Q_ASSERT(m_num_bytes_in_frame < frame_size_b);
 
-        // Copies the data into the samples buffer.
-        memcpy(m_samples, m_buffer.data(), m_samples_size);
-        m_buffer.remove(0, m_samples_size);
+    size_t ate = 0;
+    while (ate < count) {
+        // Adds the data to the channels.
+        while (ate < count && m_num_bytes_in_frame < frame_size_b) {
+            for (int c = 0; c < m_frame->channels; ++c) {
+                memcpy(&m_frame->data[c][m_num_bytes_in_frame],
+                       &((uint8_t *)buf)[ate],
+                       sample_size_b);
+                ate += sample_size_b;
+            }
+            m_num_bytes_in_frame += sample_size_b; // Per channel
+        }
 
-        // Encodes the samples.
-        int got_output;
-        int ret =  avcodec_encode_audio2(m_audio_stream->codec, &pkt, m_frame,
-                                         &got_output);
-        Q_ASSERT(ret >= 0 && "Error encoding audio frame");
-
-        // Writes the data into the file if we got some output.
-        if (got_output) {
-            ret = av_interleaved_write_frame(m_context, &pkt);
-            Q_ASSERT(ret >= 0 && "Error while writing audio frame");
+        // Writes the next frame (if full).
+        if (m_num_bytes_in_frame == frame_size_b) {
+            writeFrame(m_context, m_audio_stream->codec, m_frame);
+            m_num_bytes_in_frame = 0;
         }
     }
 

@@ -7,7 +7,6 @@ extern "C" {
 #include <libavutil/dict.h>
 }
 
-#include <QByteArray>
 #include <QString>
 #include <QtGlobal>
 
@@ -28,10 +27,7 @@ private:
     AVStream *m_audio_stream;
 
     AVFrame *m_frame;
-    ssize_t m_samples_size;
-    void *m_samples;
-
-    QByteArray m_buffer;
+    size_t m_num_bytes_in_frame;
 
     Q_DISABLE_COPY(BaseWriter)
 };

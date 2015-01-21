@@ -4,7 +4,7 @@
 namespace Audio {
 const int kSampleRateHz = 44100;
 const int kBitRateBps   = 128000;
-const int kNumChannels  = 1;
+const int kNumChannels  = 2;
 } // namespace Audio
 
 namespace Stream {
