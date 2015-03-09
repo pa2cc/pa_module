@@ -3,11 +3,11 @@
 
 #include <functional>
 
-#include <QMutex>
-#include <QMutexLocker>
-#include <QObject>
-#include <QScopedPointer>
-#include <QTimer>
+#include <QtCore/QMutex>
+#include <QtCore/QMutexLocker>
+#include <QtCore/QObject>
+#include <QtCore/QScopedPointer>
+#include <QtCore/QTimer>
 
 class _ChangeNotifierHelper;
 class _ChangeNotifierWaiter : public QObject {
@@ -19,7 +19,7 @@ public:
 
     _ChangeNotifierWaiter(update_f update_cb, timeout_f timeout_cb);
 
-public slots:
+public Q_SLOTS:
     void onUpdate();
     void onTimeout();
 
@@ -53,7 +53,7 @@ private:
 class _ChangeNotifierHelper : public QObject {
     Q_OBJECT
 
-signals:
+Q_SIGNALS:
     void valueUpdated();
 };
 

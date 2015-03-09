@@ -8,13 +8,15 @@ extern "C" {
 } // extern "C"
 
 #include "change_notifier.h"
-#include "constants.h"
 #include "writer.h"
 
 namespace {
+const int kSampleRateHz = 44100;
+const int kBitRateBps   = 128000;
+const int kNumChannels  = 2;
+
 const char kDefaultSinkName[] = "PACC bridge";
 const pa_usec_t kBlocUsec = 2 * PA_USEC_PER_SEC;
-const pa_sample_format_t kSampleFormat = PA_SAMPLE_FLOAT32NE;
 
 const char* const kValidModargs[] = {
     "sink_name",
@@ -60,7 +62,7 @@ int PASink::init(pa_module *m, Writer *writer) {
     }
 
     pa_channel_map map;
-    switch (Audio::kNumChannels) {
+    switch (numChannels()) {
         case 1: pa_channel_map_init_mono(&map); break;
         case 2: pa_channel_map_init_stereo(&map); break;
 
@@ -70,12 +72,11 @@ int PASink::init(pa_module *m, Writer *writer) {
     // Initializes the sample specs.
     pa_sample_spec ss;
     pa_sample_spec_init(&ss);
-    ss.format = kSampleFormat;
-    ss.rate = Audio::kSampleRateHz;
+    ss.format = m_writer->sampleFormat();
+    ss.rate = sampleRateHz();
     ss.channels = map.channels;
     pa_assert(pa_sample_spec_valid(&ss));
 
-    m_module = m_module;
     m_rtpoll = pa_rtpoll_new();
     pa_thread_mq_init(&m_thread_mq, m_module->core->mainloop, m_rtpoll);
 
@@ -173,6 +174,16 @@ PASink::~PASink() {
     if (m_rtpoll) {
         pa_rtpoll_free(m_rtpoll);
     }
+}
+
+int PASink::sampleRateHz() const {
+    return kSampleRateHz;
+}
+int PASink::bitRateBps() const {
+    return kBitRateBps;
+}
+int PASink::numChannels() const {
+    return kNumChannels;
 }
 
 int sinkProcessMsgCb(pa_msgobject *o, int code, void *data, int64_t offset,
@@ -289,7 +300,9 @@ void PASink::processRender(pa_usec_t now) {
         pa_sink_render(m_sink, max_request, &chunk);
 
         void *p = pa_memblock_acquire(chunk.memblock);
-        m_writer->write((const uint8_t *)p + chunk.index, chunk.length);
+        size_t bytes_written =
+                m_writer->write((const uint8_t *)p + chunk.index, chunk.length);
+        Q_ASSERT(bytes_written == chunk.length);
         pa_memblock_release(chunk.memblock);
 
         pa_memblock_unref(chunk.memblock);

@@ -7,13 +7,12 @@ extern "C" {
 #include <pulsecore/thread.h>
 } // extern "C"
 
-#include <QCoreApplication>
-#include <QObject>
-#include <QScopedPointer>
-#include <QThread>
+#include <QtCore/QCoreApplication>
+#include <QtCore/QObject>
+#include <QtCore/QScopedPointer>
+#include <QtCore/QThread>
 
 class ControlServer;
-class StreamingServer;
 class Writer;
 
 class PAModule : public QObject {
@@ -24,7 +23,7 @@ public:
     static PAModule &instance();
     void stop();
 
-private slots:
+private Q_SLOTS:
     void exec();
 
 private:
@@ -43,7 +42,6 @@ private:
     QThread m_main_thread;
 
     QScopedPointer<ControlServer> m_control_server;
-    QScopedPointer<StreamingServer> m_streaming_server;
     QScopedPointer<Writer> m_writer;
 };
 #endif // PA_MODULE_H

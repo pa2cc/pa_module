@@ -1,9 +1,6 @@
 #include "writer_adts.h"
 
-#include <QDebug>
-#include <QDir>
-
-#include "constants.h"
+#include <QtCore/QDir>
 
 namespace {
 const int kHlsTimePerSegmentS = 1;
@@ -13,7 +10,8 @@ const char kHlsTsFilenameTemplate[] = "pacc_%03d.ts";
 } // namespace
 
 
-static AVDictionary *format_options() {
+static AVDictionary *format_options(const QString &out_path,
+                                    const QString &playlist_file_name) {
     // Sets the segment format options.
     AVDictionary *options = NULL;
     int ret;
@@ -22,7 +20,7 @@ static AVDictionary *format_options() {
     ret = av_dict_set(&options, "segment_list_type", "hls", 0);
     Q_ASSERT(ret >= 0 && "Could not set property");
     ret = av_dict_set(&options, "segment_list", QString("%1%2").arg(
-                          Stream::kOutPath, Stream::kPlaylistFilename)
+                          out_path, playlist_file_name)
                       .toStdString().data(), 0);
     Q_ASSERT(ret >= 0 && "Could not set property");
     ret = av_dict_set_int(&options, "segment_time", kHlsTimePerSegmentS, 0);
@@ -37,8 +35,9 @@ static AVDictionary *format_options() {
     return options;
 }
 
-ADTSWriter::ADTSWriter()
-    : BaseWriter("segment", QString(Stream::kOutPath) + kHlsTsFilenameTemplate,
-                 AV_CODEC_ID_AAC, format_options())
+ADTSWriter::ADTSWriter(PASink *pa_sink)
+    : BaseAVWriter(pa_sink, "segment", outPath() + kHlsTsFilenameTemplate,
+                   AV_CODEC_ID_AAC,
+                   format_options(outPath(), playlistFilename()))
 {
 }

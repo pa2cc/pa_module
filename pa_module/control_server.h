@@ -1,42 +1,23 @@
-#ifndef CONTROL_SERVER_H
-#define CONTROL_SERVER_H
+#ifndef CONTROL_SERVER
+#define CONTROL_SERVER
 
-#include <QObject>
-#include <QScopedPointer>
-#include <QString>
-#include <QtGlobal>
-
-#include <Tufao/HttpServer>
-#include <Tufao/HttpServerRequest>
-#include <Tufao/HttpServerRequestRouter>
-#include <Tufao/HttpServerResponse>
-
-template<class T> class ChangeNotifier;
+#include <QtCore/QJsonValue>
+#include <QtCore/QObject>
 
 class ControlServer : public QObject {
     Q_OBJECT
 
 public:
-    ControlServer(const QString &stream_secret,
-                  ChangeNotifier<int> *volume_notifier);
-    virtual ~ControlServer();
+    virtual ~ControlServer() {}
 
-private slots:
-    bool handleRequest(Tufao::HttpServerRequest &request,
-                       Tufao::HttpServerResponse &response);
+    virtual void sendMessage(const QString &type, const QJsonValue &payload) =0;
 
-private:
-    Tufao::HttpServerRequestRouter::Handler handleRequest();
-    Tufao::HttpServerRequestRouter::Handler streamInfoHandler();
-    Tufao::HttpServerRequestRouter::Handler volumeInfoHandler();
+Q_SIGNALS:
+    void clientConnected();
+    void clientDisconnected();
 
-    QString m_stream_secret;
-    ChangeNotifier<int> *m_volume_notifier;
-
-    Tufao::HttpServer m_http_server;
-    Tufao::HttpServerRequestRouter m_router;
-
-    Q_DISABLE_COPY(ControlServer)
+    void messageReceived(const QString &type, const QJsonValue &payload);
 };
 
-#endif // CONTROL_SERVER_H
+#endif // CONTROL_SERVER
+

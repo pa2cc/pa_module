@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/certs">
+        <file>localhost.crt</file>
+        <file>localhost.key</file>
+    </qresource>
+</RCC>

@@ -1,13 +1,13 @@
 #ifndef WRITER_HLS_H
 #define WRITER_HLS_H
 
-#include <QtGlobal>
+#include <QtCore/QtGlobal>
 
-#include "writer_base.h"
+#include "writer_av_base.h"
 
-class HLSWriter : public BaseWriter {
+class HLSWriter : public BaseAVWriter {
 public:
-    HLSWriter();
+    explicit HLSWriter(PASink *pa_sink);
 
 private:
     Q_DISABLE_COPY(HLSWriter)

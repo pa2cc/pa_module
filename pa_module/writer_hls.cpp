@@ -1,7 +1,5 @@
 #include "writer_hls.h"
 
-#include "constants.h"
-
 namespace {
 const int kHlsTimePerSegmentS = 3;
 const int kHlsListSize = 4;
@@ -25,8 +23,8 @@ static AVDictionary *format_options() {
     return options;
 }
 
-HLSWriter::HLSWriter()
-    : BaseWriter("hls", QString(Stream::kOutPath) + Stream::kPlaylistFilename,
-                 AV_CODEC_ID_AUTO, format_options())
+HLSWriter::HLSWriter(PASink *pa_sink)
+    : BaseAVWriter(pa_sink, "hls", outPath() + playlistFilename(),
+                   AV_CODEC_ID_AUTO, format_options())
 {
 }

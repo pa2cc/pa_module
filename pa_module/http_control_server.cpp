@@ -1,22 +1,30 @@
-#include "control_server.h"
+#include "http_control_server.h"
 
 #include <algorithm>
 
-#include <QByteArray>
-#include <QHostAddress>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QNetworkInterface>
-#include <QUrlQuery>
+#include <QtCore/QByteArray>
+#include <QtCore/QFile>
+#include <QtCore/QJsonArray>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
+#include <QtCore/QUrlQuery>
+#include <QtNetwork/QHostAddress>
+#include <QtNetwork/QNetworkInterface>
+#include <QtNetwork/QSslCertificate>
+#include <QtNetwork/QSslKey>
 
+#define signals Q_SIGNALS
+#define slots Q_SLOTS
 #include "Tufao/Headers"
 #include "Tufao/HttpServerRequest"
 #include "Tufao/HttpServerResponse"
 #include "Tufao/NotFoundHandler"
+#undef signals
+#undef slots
 
-#include "constants.h"
 #include "change_notifier.h"
+#include "http_streaming_server.h"
+#include "writer_av_base.h"
 
 namespace {
 const char kStreamInfoPath[] = "/streamInfo";
@@ -26,9 +34,11 @@ const int kVolumeMaxWaitMs = 50000; // 50s
 } // namespace
 
 
-ControlServer::ControlServer(const QString &stream_secret,
-                             ChangeNotifier<int> *volume_notifier)
-    : m_stream_secret(stream_secret)
+HttpControlServer::HttpControlServer(BaseAVWriter *writer,
+                                     ChangeNotifier<int> *volume_notifier,
+                                     quint16 port)
+    : m_writer(writer)
+    , m_streaming_server(new HttpStreamingServer(writer))
     , m_volume_notifier(volume_notifier)
 {
     // Sets up the request router.
@@ -38,24 +48,43 @@ ControlServer::ControlServer(const QString &stream_secret,
                   "GET", volumeInfoHandler()});
     m_router.map({QRegularExpression(""), Tufao::NotFoundHandler::handler()});
 
-    bool (ControlServer:: *request_handler)(
+    bool (HttpControlServer:: *request_handler)(
                 Tufao::HttpServerRequest &request,
                 Tufao::HttpServerResponse &response) =
-            &ControlServer::handleRequest;
+            &HttpControlServer::handleRequest;
     QObject::connect(&m_http_server, &Tufao::HttpServer::requestReady,
                      this, request_handler);
 
+    // Sets the SSL certificate.
+    QFile cert_file(":/certs/localhost.crt");
+    cert_file.open(QIODevice::ReadOnly);
+    QSslCertificate cert(cert_file.readAll());
+    m_http_server.setLocalCertificate(cert);
+
+    // Sets the SSL key.
+    QFile key_file(":/certs/localhost.key");
+    key_file.open(QIODevice::ReadOnly);
+    QSslKey key(key_file.readAll(), QSsl::Rsa);
+    m_http_server.setPrivateKey(key);
+
     // Starts the HTTP server.
-    bool ok =
-            m_http_server.listen(QHostAddress::Any, Stream::kControlServerPort);
+    bool ok = m_http_server.listen(QHostAddress::Any, port);
     Q_ASSERT(ok && "Could not open the control server socket.");
 }
 
-ControlServer::~ControlServer() {
+HttpControlServer::~HttpControlServer() {
 }
 
-bool ControlServer::handleRequest(Tufao::HttpServerRequest &request,
-                                  Tufao::HttpServerResponse &response) {
+void HttpControlServer::sendMessage(const QString &type,
+                                    const QJsonValue &payload) {
+    Q_UNUSED(type);
+    Q_UNUSED(payload);
+
+    Q_ASSERT(false && "Not implemented.");
+}
+
+bool HttpControlServer::handleRequest(Tufao::HttpServerRequest &request,
+                                      Tufao::HttpServerResponse &response) {
     // We only accept requests from localhost.
     if (!request.socket().localAddress().isLoopback()) {
         response.writeHead(Tufao::HttpResponseStatus::FORBIDDEN, "Forbidden");
@@ -65,13 +94,13 @@ bool ControlServer::handleRequest(Tufao::HttpServerRequest &request,
 
     // Adds the CORS header.
     if (request.headers().contains("Origin")) {
-        response.headers().insert(
-                    "Access-Control-Allow-Origin", CORS::kAllowOrigin);
+        response.headers().insert("Access-Control-Allow-Origin",
+                                  HttpStreamingServer::CORS::kAllowOrigin);
     }
     return m_router.handleRequest(request, response);
 }
 
-static QJsonArray streamUrls() {
+QJsonArray HttpControlServer::streamUrls() {
     // Generates the stream URLs for all IPs of this machine.
     QJsonArray stream_urls;
     for (const QHostAddress &address : QNetworkInterface::allAddresses()) {
@@ -85,15 +114,15 @@ static QJsonArray streamUrls() {
                     : QString("[%1]").arg(address.toString());
         QString stream_url = QString("http://%1:%2/%3")
                 .arg(address_str)
-                .arg(Stream::kStreamServerPort)
-                .arg(Stream::kMasterPlaylistFilename);
+                .arg(m_streaming_server->streamingPort())
+                .arg(m_writer->masterPlaylistFilename());
         stream_urls.append(stream_url);
     }
 
     return stream_urls;
 }
 
-Tufao::HttpServerRequestRouter::Handler ControlServer::streamInfoHandler() {
+Tufao::HttpServerRequestRouter::Handler HttpControlServer::streamInfoHandler() {
     return [this](Tufao::HttpServerRequest &request,
                   Tufao::HttpServerResponse &response)
     {
@@ -101,7 +130,7 @@ Tufao::HttpServerRequestRouter::Handler ControlServer::streamInfoHandler() {
 
         // Creates the JSON reply.
         QJsonObject stream_info;
-        stream_info.insert("stream_secret", m_stream_secret);
+        stream_info.insert("stream_secret", m_streaming_server->streamSecret());
         stream_info.insert("stream_urls", streamUrls());
 
         QByteArray body = QJsonDocument(stream_info)
@@ -116,7 +145,7 @@ Tufao::HttpServerRequestRouter::Handler ControlServer::streamInfoHandler() {
     };
 }
 
-Tufao::HttpServerRequestRouter::Handler ControlServer::volumeInfoHandler() {
+Tufao::HttpServerRequestRouter::Handler HttpControlServer::volumeInfoHandler() {
     return [this](Tufao::HttpServerRequest &request,
                   Tufao::HttpServerResponse &response)
     {

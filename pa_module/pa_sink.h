@@ -8,8 +8,8 @@ extern "C" {
 #include <pulsecore/thread.h>
 } // extern "C"
 
-#include <QScopedPointer>
-#include <QtGlobal>
+#include <QtCore/QScopedPointer>
+#include <QtCore/QtGlobal>
 
 template<class T> class ChangeNotifier;
 class Writer;
@@ -19,6 +19,10 @@ public:
     int init(pa_module *m, Writer *writer);
     static PASink &instance();
     void drop();
+
+    int sampleRateHz() const;
+    int bitRateBps() const;
+    int numChannels() const;
 
     ChangeNotifier<int> *volumeNotifier() const;
 

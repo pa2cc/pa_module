@@ -1,13 +1,13 @@
 #ifndef WRITER_ADTS_H
 #define WRITER_ADTS_H
 
-#include <QtGlobal>
+#include <QtCore/QtGlobal>
 
-#include "writer_base.h"
+#include "writer_av_base.h"
 
-class ADTSWriter : public BaseWriter {
+class ADTSWriter : public BaseAVWriter {
 public:
-    ADTSWriter();
+    explicit ADTSWriter(PASink *pa_sink);
 
 private:
     Q_DISABLE_COPY(ADTSWriter)

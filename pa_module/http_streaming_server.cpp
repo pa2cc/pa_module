@@ -1,26 +1,34 @@
-#include "streaming_server.h"
+#include "http_streaming_server.h"
 
 #include <functional>
 
-#include <QDebug>
-#include <QDir>
-#include <QFile>
-#include <QTime>
-#include <QUrl>
+#include <QtCore/QDebug>
+#include <QtCore/QDir>
+#include <QtCore/QFile>
+#include <QtCore/QTime>
+#include <QtCore/QUrl>
 
-#include <Tufao/HttpFileServer>
+#define signals Q_SIGNALS
+#define slots Q_SLOTS
 #include <Tufao/HttpServerRequest>
 #include <Tufao/NotFoundHandler>
+#undef signals
+#undef slots
 
-#include "constants.h"
+#include "pa_sink.h"
+#include "writer_av_base.h"
 
 namespace {
+const int kStreamServerPort = 51349;
 const int kDefaultSecretLengthB = 32;
 } // namespace
 
-StreamingServer::StreamingServer(const QString &stream_secret)
-    : m_stream_secret(stream_secret)
-    , m_file_server(new Tufao::HttpFileServer(Stream::kOutPath))
+const char HttpStreamingServer::CORS::kAllowOrigin[] = "https://www.gorrion.ch";
+
+HttpStreamingServer::HttpStreamingServer(BaseAVWriter *writer)
+    : m_writer(writer)
+    , m_stream_secret(generateStreamSecret(kDefaultSecretLengthB))
+    , m_file_server(new Tufao::HttpFileServer(writer->outPath()))
 {
     // Creates the master playlist.
     createMasterPlaylist();
@@ -34,23 +42,30 @@ StreamingServer::StreamingServer(const QString &stream_secret)
 
     // Starts the HTTP server.
     bool ok =
-            m_http_server.listen(QHostAddress::Any, Stream::kStreamServerPort);
+            m_http_server.listen(QHostAddress::Any, kStreamServerPort);
     Q_ASSERT(ok && "Could not open the streaming server socket.");
 }
 
-StreamingServer::~StreamingServer() {
+HttpStreamingServer::~HttpStreamingServer() {
     // Removes the master playlist and the out-directory (if present)
-    QFile().remove(QString(Stream::kOutPath) + Stream::kMasterPlaylistFilename);
-    QDir().rmpath(Stream::kOutPath);
+    QFile().remove(m_writer->outPath() + m_writer->masterPlaylistFilename());
+    QDir().rmpath(m_writer->outPath());
 }
 
-void StreamingServer::createMasterPlaylist() {
+QString HttpStreamingServer::streamSecret() const {
+    return m_stream_secret;
+}
+int HttpStreamingServer::streamingPort() const {
+    return kStreamServerPort;
+}
+
+void HttpStreamingServer::createMasterPlaylist() {
     // Creates the output path if it does not exist yet.
-    Q_ASSERT(QDir().mkpath(Stream::kOutPath) &&
+    Q_ASSERT(QDir().mkpath(m_writer->outPath()) &&
              "Could not create the output directory.");
 
     // Opens the master playlist file.
-    QFile f(QString(Stream::kOutPath) + Stream::kMasterPlaylistFilename);
+    QFile f(m_writer->outPath() + m_writer->masterPlaylistFilename());
     bool ok = f.open(QIODevice::WriteOnly);
     Q_ASSERT(ok && "Could not open the master playlist file");
 
@@ -59,15 +74,15 @@ void StreamingServer::createMasterPlaylist() {
                 "#EXTM3U\n"
                 "#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=%1,CODECS=\"mp4a.40.2\"\n"
                 "%2")
-            .arg(Audio::kBitRateBps)
-            .arg(Stream::kPlaylistFilename);
+            .arg(m_writer->pa_sink()->bitRateBps())
+            .arg(m_writer->playlistFilename());
     f.write(contents.toUtf8());
 
     // Closes the file.
     f.close();
 }
 
-Tufao::HttpServerRequestRouter::Handler StreamingServer::handler() {
+Tufao::HttpServerRequestRouter::Handler HttpStreamingServer::handler() {
     return  [this](Tufao::HttpServerRequest &request,
                    Tufao::HttpServerResponse &response)
     {
@@ -132,7 +147,7 @@ Tufao::HttpServerRequestRouter::Handler StreamingServer::handler() {
     };
 }
 
-QString StreamingServer::generateStreamSecret() {
+QString HttpStreamingServer::generateStreamSecret(int secret_length) {
     // Sets a seed for the random function.
     static bool qrand_initialized = false;
     if (!qrand_initialized) {
@@ -145,7 +160,7 @@ QString StreamingServer::generateStreamSecret() {
                         "0123456789");
 
     QString secret;
-    for(int i = 0; i < kDefaultSecretLengthB; ++i) {
+    for(int i = 0; i < secret_length; ++i) {
         int index = qrand() % chars.length();
         secret.append(chars[index]);
     }
