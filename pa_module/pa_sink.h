@@ -11,7 +11,6 @@ extern "C" {
 #include <QtCore/QScopedPointer>
 #include <QtCore/QtGlobal>
 
-template<class T> class ChangeNotifier;
 class Writer;
 
 class PASink {
@@ -24,18 +23,14 @@ public:
     int bitRateBps() const;
     int numChannels() const;
 
-    ChangeNotifier<int> *volumeNotifier() const;
-
     int onSinkProcessMsg(pa_msgobject *o, int code, void *data, int64_t offset,
                          pa_memchunk *chunk);
     void onSinkUpdateRequestedLatency(pa_sink *s);
-    void onSinkEvent(pa_subscription_event_type_t event_type, uint32_t idx);
     void threadFunc();
 
 private:
     void processRender(pa_usec_t now);
     void processRewind(pa_usec_t now);
-    void updateVolume(bool force_update);
 
 
     friend class QScopedPointerDeleter<PASink>;
@@ -58,7 +53,6 @@ private:
     pa_usec_t m_timestamp;
 
     pa_subscription *m_event_subscription;
-    QScopedPointer<ChangeNotifier<int>> m_volume_notifier;
 };
 
 #endif // PA_SINK_H
