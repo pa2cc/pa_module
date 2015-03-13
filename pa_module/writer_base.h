@@ -1,11 +1,6 @@
 #ifndef WRITER_BASE_H
 #define WRITER_BASE_H
 
-extern "C" {
-#include <config.h>
-#include <pulse/sample.h>
-} // extern "C"
-
 #include "writer.h"
 
 class PASink;

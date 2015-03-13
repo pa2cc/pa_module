@@ -23,17 +23,16 @@ LIBS += \
     -L$${OUT_PWD}/webrtc -lwebrtc \
 
 INCLUDEPATH += \
-    include/ \
-    include/pulse/ \
     webrtc/ \
 
 HEADERS += \
     control_server.h \
     pa_module.h\
     pa_sink.h \
+    pa_sink_priv.h \
     websocket_server.h \
     writer.h \
-    writer_base.h
+    writer_base.h \
 
 SOURCES += \
     pa_module.cpp \
@@ -49,4 +48,5 @@ unix {
     INSTALLS += target
 }
 
+include(third_party.pri)
 include(webrtc/webrtc.pri)

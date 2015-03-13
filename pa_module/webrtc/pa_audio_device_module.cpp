@@ -354,23 +354,23 @@ int32_t PAAudioDeviceModule::SetMicrophoneVolume(uint32_t volume) {
 }
 int32_t PAAudioDeviceModule::MicrophoneVolume(uint32_t *volume) const {
     qDebug() << __FUNCTION__;
-    Q_UNUSED(volume);
-    return -1;
+    *volume = m_pa_sink->volume();
+    return 0;
 }
 int32_t PAAudioDeviceModule::MaxMicrophoneVolume(uint32_t *maxVolume) const {
     qDebug() << __FUNCTION__;
-    Q_UNUSED(maxVolume);
-    return -1;
+	*maxVolume = m_pa_sink->maxVolume();
+    return 0;
 }
 int32_t PAAudioDeviceModule::MinMicrophoneVolume(uint32_t *minVolume) const {
     qDebug() << __FUNCTION__;
-    Q_UNUSED(minVolume);
-    return -1;
+    *minVolume = m_pa_sink->minVolume();
+    return 0;
 }
 int32_t PAAudioDeviceModule::MicrophoneVolumeStepSize(uint16_t *stepSize) const {
     qDebug() << __FUNCTION__;
-    Q_UNUSED(stepSize);
-    return -1;
+    *stepSize = m_pa_sink->volumeStepSize();
+    return 0;
 }
 
 // Speaker mute control
@@ -403,8 +403,8 @@ int32_t PAAudioDeviceModule::SetMicrophoneMute(bool enable) {
 }
 int32_t PAAudioDeviceModule::MicrophoneMute(bool *enabled) const {
     qDebug() << __FUNCTION__;
-    Q_UNUSED(enabled);
-    return -1;
+    *enabled = m_pa_sink->isMuted();
+    return 0;
 }
 
 // Microphone boost control

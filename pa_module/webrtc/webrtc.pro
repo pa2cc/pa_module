@@ -1,5 +1,5 @@
 TEMPLATE = lib
-CONFIG+= staticlib
+CONFIG += staticlib
 
 TARGET = webrtc
 DEPENDPATH += .
@@ -96,16 +96,11 @@ CONFIG(debug, debug|release) {
         _GLIBCXX_DEBUG=1
 }
 
+include(../third_party.pri)
 include(webrtc.pri)
 
 INCLUDEPATH +=  \
-    . \
     .. \
-    ../include/ \
-    ../include/pulse/ \
-    $$WEBRTC_BASE \
-    $$WEBRTC_BASE/third_party \
-    $$WEBRTC_BASE/third_party/webrtc \
 
 HEADERS += \
     conductor.h \
@@ -119,6 +114,3 @@ SOURCES += \
     control_server_handler.cpp \
     pa_audio_device_module.cpp \
     writer_webrtc.cpp \
-
-DISTFILES += \
-    webrtc.pri

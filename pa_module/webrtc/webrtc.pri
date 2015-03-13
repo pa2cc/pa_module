@@ -1,15 +1,11 @@
-# Either set this to the correct path or run qmake like this:
-#   qmake WEBRTC_BASE=/path/to/webrtc/trunk
-#WEBRTC_BASE = /path/to/webrtc/trunk/
-WEBRTC_BASE = $$(WEBRTC_BASE) # Reads the WEBRTC_BASE environment variable.
 isEmpty(WEBRTC_BASE){
   error(Please point the WEBRTC_BASE variable to your webrtc root.)
 }
 
 CONFIG(debug,debug|release) {
-    WEBRTC_BUILD = $$WEBRTC_BASE/out/Debug
+    WEBRTC_BUILD = $$WEBRTC_BASE/src/out/Debug
 } else {
-    WEBRTC_BUILD = $$WEBRTC_BASE/out/Release
+    WEBRTC_BUILD = $$WEBRTC_BASE/src/out/Release
 }
 
 LIBS += \

@@ -1,5 +1,11 @@
 #include "pa_module.h"
 
+extern "C" {
+#include <config.h>
+#include <pulsecore/module.h>
+#include <pulsecore/thread.h>
+} // extern "C"
+
 #include "pa_sink.h"
 #include "websocket_server.h"
 #include "writer_webrtc.h"

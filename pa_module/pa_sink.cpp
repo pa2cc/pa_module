@@ -1,9 +1,12 @@
 #include "pa_sink.h"
+#include "pa_sink_priv.h"
 
 extern "C" {
+#include <pulse/introspect.h>
 #include <pulse/rtclock.h>
 #include <pulse/timeval.h>
 #include <pulsecore/modargs.h>
+#include <pulsecore/module.h>
 #include <pulsecore/namereg.h>
 } // extern "C"
 
@@ -28,6 +31,8 @@ const char* const kValidModargs[] = {
 };
 } // namespace
 
+static void sinkEventCb(pa_core *core, pa_subscription_event_type_t event_type,
+                        uint32_t idx, void *self);
 static int sinkProcessMsgCb(pa_msgobject *o, int code, void *data,
                             int64_t offset, pa_memchunk *chunk);
 static void sinkUpdateRequestedLatencyCb(pa_sink *s);
@@ -35,6 +40,60 @@ static void threadFuncCb(void *self);
 
 
 PASink::PASink()
+    : d(new PASinkPriv)
+{
+}
+
+PASink::~PASink() {
+}
+
+QScopedPointer<PASink> PASink::m_instance(NULL);
+PASink &PASink::instance() {
+    if (!m_instance) {
+        m_instance.reset(new PASink);
+    }
+
+    return *m_instance;
+}
+void PASink::drop() {
+    m_instance.reset(NULL);
+}
+
+
+int PASink::init(pa_module *module, Writer *writer) {
+    return d->init(module, writer);
+}
+
+int PASink::sampleRateHz() const {
+    return kSampleRateHz;
+}
+int PASink::bitRateBps() const {
+    return kBitRateBps;
+}
+int PASink::numChannels() const {
+    return kNumChannels;
+}
+
+bool PASink::isMuted() const {
+    return d->m_muted;
+}
+
+quint32 PASink::volume() const {
+    return d->m_avg_volume;
+}
+quint32 PASink::minVolume() const {
+    return PA_VOLUME_MUTED;
+}
+quint32 PASink::maxVolume() const {
+    return PA_VOLUME_NORM;
+}
+quint16 PASink::volumeStepSize() const {
+    return (PA_VOLUME_NORM + 1) / d->m_sink->n_volume_steps;
+}
+
+/********************************** PRIV **************************************/
+
+PASinkPriv::PASinkPriv()
     : m_module(NULL)
     , m_writer(NULL)
 
@@ -43,10 +102,13 @@ PASink::PASink()
     , m_rtpoll(NULL)
 
     , m_event_subscription(NULL)
+
+    , m_muted(false)
+    , m_avg_volume(0)
 {
 }
 
-int PASink::init(pa_module *m, Writer *writer) {
+int PASinkPriv::init(pa_module *m, Writer *writer) {
     pa_assert_se(m_module = m);
     pa_assert_se(m_writer = writer);
 
@@ -57,7 +119,7 @@ int PASink::init(pa_module *m, Writer *writer) {
     }
 
     pa_channel_map map;
-    switch (numChannels()) {
+    switch (kNumChannels) {
         case 1: pa_channel_map_init_mono(&map); break;
         case 2: pa_channel_map_init_stereo(&map); break;
 
@@ -68,7 +130,7 @@ int PASink::init(pa_module *m, Writer *writer) {
     pa_sample_spec ss;
     pa_sample_spec_init(&ss);
     ss.format = m_writer->sampleFormat();
-    ss.rate = sampleRateHz();
+    ss.rate = kSampleRateHz;
     ss.channels = map.channels;
     pa_assert(pa_sample_spec_valid(&ss));
 
@@ -123,6 +185,11 @@ int PASink::init(pa_module *m, Writer *writer) {
 
     pa_sink_put(m_sink);
 
+    // Subscribes us to events on the sink.
+    m_event_subscription = pa_subscription_new(m_module->core,
+                                               PA_SUBSCRIPTION_MASK_SINK,
+                                               sinkEventCb, this);
+
     pa_modargs_free(ma);
 
     return 0;
@@ -134,7 +201,7 @@ fail:
     return -1;
 }
 
-PASink::~PASink() {
+PASinkPriv::~PASinkPriv() {
     if (!m_module) {
         return;
     }
@@ -164,22 +231,29 @@ PASink::~PASink() {
     }
 }
 
-int PASink::sampleRateHz() const {
-    return kSampleRateHz;
+void sinkEventCb(pa_core *core, pa_subscription_event_type_t event_type,
+                 uint32_t idx, void *self) {
+    Q_UNUSED(core);
+    ((PASinkPriv *)self)->onSinkEvent(event_type, idx);
 }
-int PASink::bitRateBps() const {
-    return kBitRateBps;
-}
-int PASink::numChannels() const {
-    return kNumChannels;
+void PASinkPriv::onSinkEvent(pa_subscription_event_type_t event_type,
+                             uint32_t idx) {
+    if (m_sink->index != idx || event_type != PA_SUBSCRIPTION_EVENT_CHANGE) {
+        return;
+    }
+
+    // Checks if we are muted and reads the volume.
+    m_muted = pa_sink_get_mute(m_sink, false);
+    const pa_cvolume *volumes = pa_sink_get_volume(m_sink, false);
+    m_avg_volume = pa_cvolume_avg(volumes);
 }
 
 int sinkProcessMsgCb(pa_msgobject *o, int code, void *data, int64_t offset,
                      pa_memchunk *chunk) {
-    return PASink::instance().onSinkProcessMsg(o, code, data, offset, chunk);
+    return PASink::instance().d->onSinkProcessMsg(o, code, data, offset, chunk);
 }
-int PASink::onSinkProcessMsg(pa_msgobject *o, int code, void *data,
-                             int64_t offset, pa_memchunk *chunk) {
+int PASinkPriv::onSinkProcessMsg(pa_msgobject *o, int code, void *data,
+                                 int64_t offset, pa_memchunk *chunk) {
     switch (code) {
         case PA_SINK_MESSAGE_GET_LATENCY: {
             pa_usec_t now = pa_rtclock_now();
@@ -192,9 +266,9 @@ int PASink::onSinkProcessMsg(pa_msgobject *o, int code, void *data,
 }
 
 void sinkUpdateRequestedLatencyCb(pa_sink *s) {
-    PASink::instance().onSinkUpdateRequestedLatency(s);
+    PASink::instance().d->onSinkUpdateRequestedLatency(s);
 }
-void PASink::onSinkUpdateRequestedLatency(pa_sink *s) {
+void PASinkPriv::onSinkUpdateRequestedLatency(pa_sink *s) {
     pa_sink_assert_ref(s);
 
     m_block_usec = pa_sink_get_requested_latency_within_thread(s);
@@ -208,7 +282,7 @@ void PASink::onSinkUpdateRequestedLatency(pa_sink *s) {
     pa_sink_set_max_request_within_thread(s, nbytes);
 }
 
-void PASink::processRewind(pa_usec_t now) {
+void PASinkPriv::processRewind(pa_usec_t now) {
     size_t rewind_nbytes = m_sink->thread_info.rewind_nbytes;
 
     if (!PA_SINK_IS_OPENED(m_sink->thread_info.state) || rewind_nbytes <= 0 ||
@@ -221,7 +295,6 @@ void PASink::processRewind(pa_usec_t now) {
 
     size_t in_buffer;
     in_buffer = pa_usec_to_bytes(delay, &m_sink->sample_spec);
-
     if (in_buffer <= 0) {
         goto do_nothing;
     }
@@ -239,7 +312,7 @@ do_nothing:
     pa_sink_process_rewind(m_sink, 0);
 }
 
-void PASink::processRender(pa_usec_t now) {
+void PASinkPriv::processRender(pa_usec_t now) {
     /* This is the configured latency. Sink inputs connected to us
     might not have a single frame more than the maxrequest value
     queued. Hence: at maximum read this many bytes from the sink
@@ -271,9 +344,9 @@ void PASink::processRender(pa_usec_t now) {
 }
 
 void threadFuncCb(void *self) {
-    ((PASink *)self)->threadFunc();
+    ((PASinkPriv *)self)->threadFunc();
 }
-void PASink::threadFunc() {
+void PASinkPriv::threadFunc() {
     pa_log_debug("Sink thread starting up");
 
     pa_thread_mq_install(&m_thread_mq);
@@ -302,7 +375,7 @@ void PASink::threadFunc() {
         }
 
         /* Hmm, nothing to do. Let's sleep */
-        int ret = pa_rtpoll_run(m_rtpoll, true);
+        int ret = pa_rtpoll_run(m_rtpoll);
         if (ret < 0) {
             goto fail;
         } else if(ret == 0) {
@@ -319,17 +392,4 @@ fail:
 
 finish:
     pa_log_debug("Sink thread shutting down");
-}
-
-QScopedPointer<PASink> PASink::m_instance(NULL);
-PASink &PASink::instance() {
-    if (!m_instance) {
-        m_instance.reset(new PASink);
-    }
-
-    return *m_instance;
-}
-
-void PASink::drop() {
-    m_instance.reset(NULL);
 }

@@ -4,7 +4,6 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
-#include <talk/media/devices/devicemanager.h>
 #include <talk/app/webrtc/test/fakeconstraints.h>
 #include <webrtc/base/common.h>
 #include <webrtc/base/logging.h>
@@ -111,11 +110,35 @@ bool Conductor::createPeerConnection() {
 void Conductor::addStreams() {
     Q_ASSERT(!m_stream.get());
 
+    // Specifies the desired audio options.
+    FakeConstraints audio_constraints;
+    audio_constraints.AddMandatory(MediaConstraintsInterface::kEchoCancellation,
+                                   MediaConstraintsInterface::kValueFalse);
+    audio_constraints.AddMandatory(
+                MediaConstraintsInterface::kExperimentalEchoCancellation,
+                MediaConstraintsInterface::kValueFalse);
+    audio_constraints.AddMandatory(MediaConstraintsInterface::kAutoGainControl,
+                                   MediaConstraintsInterface::kValueFalse);
+    audio_constraints.AddMandatory(MediaConstraintsInterface::kNoiseSuppression,
+                                   MediaConstraintsInterface::kValueFalse);
+    audio_constraints.AddMandatory(
+                MediaConstraintsInterface::kExperimentalNoiseSuppression,
+                MediaConstraintsInterface::kValueFalse);
+    audio_constraints.AddMandatory(MediaConstraintsInterface::kHighpassFilter,
+                                   MediaConstraintsInterface::kValueFalse);
+    audio_constraints.AddMandatory(
+                MediaConstraintsInterface::kTypingNoiseDetection,
+                MediaConstraintsInterface::kValueFalse);
+    audio_constraints.AddMandatory(MediaConstraintsInterface::kAudioMirroring,
+                                   MediaConstraintsInterface::kValueFalse);
+
     // Creates the audio track.
+    rtc::scoped_refptr<AudioSourceInterface> audio_source(
+                m_peer_connection_factory->CreateAudioSource(
+                    &audio_constraints));
     rtc::scoped_refptr<AudioTrackInterface> audio_track(
                 m_peer_connection_factory->CreateAudioTrack(
-                    kAudioLabel.toStdString(),
-                    m_peer_connection_factory->CreateAudioSource(NULL)));
+                    kAudioLabel.toStdString(), audio_source));
 
     // Creates the media stream.
     m_stream = m_peer_connection_factory->CreateLocalMediaStream(

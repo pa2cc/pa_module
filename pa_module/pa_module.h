@@ -1,17 +1,12 @@
 #ifndef PA_MODULE_H
 #define PA_MODULE_H
 
-extern "C" {
-#include <config.h>
-#include <pulsecore/module.h>
-#include <pulsecore/thread.h>
-} // extern "C"
-
 #include <QtCore/QCoreApplication>
 #include <QtCore/QObject>
 #include <QtCore/QScopedPointer>
 #include <QtCore/QThread>
 
+struct pa_module;
 class ControlServer;
 class Writer;
 
