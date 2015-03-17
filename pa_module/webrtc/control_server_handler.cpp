@@ -11,6 +11,7 @@
 namespace {
 const int kControlServerPort = 51348;
 
+const QString kMsgTypeReset = "reset";
 const QString kMsgTypeGetIceCandidates = "getIceCandidates";
 const QString kMsgTypeGetSessionDescription = "getSessionDescription";
 
@@ -36,20 +37,8 @@ ControlServerHandler::ControlServerHandler(ControlServer *control_server,
 {
     connect(control_server, &ControlServer::clientConnected,
             this, &ControlServerHandler::onClientConnected);
-    connect(control_server, &ControlServer::clientDisconnected,
-            this, &ControlServerHandler::onClientDisconnected);
     connect(control_server, &ControlServer::messageReceived,
             this, &ControlServerHandler::onMessage);
-
-    // We forward the local description and ice candidates.
-    connect(conductor, &Conductor::localDescriptionAppeared,
-            [=](const SessionDescriptionInterface *session_description) {
-        sendSessionDescription(session_description);
-    });
-    connect(conductor, &Conductor::iceCandidateAppeared,
-            [=](const IceCandidateInterface *candidate) {
-        sendIceCandidate(candidate);
-    });
 }
 
 ControlServerHandler::~ControlServerHandler() {
@@ -57,7 +46,9 @@ ControlServerHandler::~ControlServerHandler() {
 
 void ControlServerHandler::onMessage(const QString &type,
                                      const QJsonValue &payload) {
-    if (kMsgTypeGetIceCandidates == type) {
+    if (kMsgTypeReset == type) {
+        handleReset();
+    } else if (kMsgTypeGetIceCandidates == type) {
         handleGetIceCandidates();
     } else if (kMsgTypeGetSessionDescription == type) {
         handleGetSessionDescription();
@@ -69,11 +60,14 @@ void ControlServerHandler::onMessage(const QString &type,
 }
 
 void ControlServerHandler::onClientConnected() {
-    m_conductor->open();
+    Q_ASSERT(m_conductor->open() &&
+             "Failed to initialize the conductor.");
 }
 
-void ControlServerHandler::onClientDisconnected() {
+void ControlServerHandler::handleReset() {
     m_conductor->close();
+    Q_ASSERT(m_conductor->open() &&
+             "Failed to initialize the conductor.");
 }
 
 
@@ -114,9 +108,16 @@ void ControlServerHandler::sendSessionDescription(
 void ControlServerHandler::handleGetIceCandidates() {
     // Sends the already known ice candidates. New ones are forwarded as they
     // appear.
-    foreach (const IceCandidateInterface *candidate, m_conductor->iceCandidates()) {
+    foreach (const IceCandidateInterface *candidate,
+             m_conductor->iceCandidates()) {
         sendIceCandidate(candidate);
     }
+
+    // Subscribes for further appearing candidates.
+    connect(m_conductor, &Conductor::iceCandidateAppeared,
+            [=](const IceCandidateInterface *candidate) {
+        sendIceCandidate(candidate);
+    });
 }
 
 void ControlServerHandler::handleGetSessionDescription() {
@@ -127,6 +128,12 @@ void ControlServerHandler::handleGetSessionDescription() {
     if (local_description) {
         sendSessionDescription(local_description);
     }
+
+    // Subscribes for further appearing descriptions.
+    connect(m_conductor, &Conductor::localDescriptionAppeared,
+            [=](const SessionDescriptionInterface *session_description) {
+        sendSessionDescription(session_description);
+    });
 }
 
 void ControlServerHandler::handleIceCandidate(const QJsonValue &payload) {
@@ -150,8 +157,8 @@ void ControlServerHandler::handleIceCandidate(const QJsonValue &payload) {
         return;
     }
 
-    // Sets the remote session description.
-    m_conductor->addIceCandidate(ice_candidate.get()); // Does not take ownership.
+    // Sets the remote session description (does not take ownership).
+    m_conductor->addRemoteIceCandidate(ice_candidate.get());
 }
 
 void ControlServerHandler::handleSessionDescription(const QJsonValue &payload) {

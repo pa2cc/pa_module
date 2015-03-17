@@ -74,7 +74,9 @@ void Conductor::close() {
 }
 
 bool Conductor::open() {
-    Q_ASSERT(!m_peer_connection.get());
+    if (m_peer_connection.get()) {
+        return true;
+    }
 
     Q_ASSERT(createPeerConnection() &&
              "CreatePeerConnection failed");
@@ -183,7 +185,7 @@ void Conductor::setRemoteDescription(SessionDescriptionInterface *desc) {
                 DummySetSessionDescriptionObserver::create(), desc);
 }
 
-void Conductor::addIceCandidate(IceCandidateInterface *ice_candidate) {
+void Conductor::addRemoteIceCandidate(IceCandidateInterface *ice_candidate) {
     m_peer_connection->AddIceCandidate(ice_candidate);
 }
 

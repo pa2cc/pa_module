@@ -33,7 +33,7 @@ public:
     const SessionDescriptionInterface *localDescription() const;
 
     void setRemoteDescription(SessionDescriptionInterface *desc);
-    void addIceCandidate(IceCandidateInterface *ice_candidate);
+    void addRemoteIceCandidate(IceCandidateInterface *ice_candidate);
 
     virtual void close();
 
