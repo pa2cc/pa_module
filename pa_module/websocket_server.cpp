@@ -12,7 +12,7 @@
 
 namespace {
 // Names used for a websocket JSON object.
-const QString kMessageType = "event";
+const QString kMessageType = "type";
 const QString kPayload = "data";
 
 } // namespace
@@ -41,18 +41,20 @@ WebsocketServer::WebsocketServer(quint16 port)
     connect(m_websocket_server.data(), &QWebSocketServer::newConnection,
             this, &WebsocketServer::onNewConnection);
     connect(m_websocket_server.data(), &QWebSocketServer::sslErrors,
-            this, &WebsocketServer::onSslErrors);
+            [](const QList<QSslError> &) {
+        qWarning() << "Ssl errors occurred";
+    });
     connect(m_websocket_server.data(), &QWebSocketServer::acceptError,
             [](QAbstractSocket::SocketError socketError) {
-        qDebug() << "SocketError: " << QString::number(socketError);
+        qWarning() << "SocketError: " << QString::number(socketError);
     });
     connect(m_websocket_server.data(), &QWebSocketServer::serverError,
             [](QWebSocketProtocol::CloseCode closeCode) {
-        qDebug() << "ServerError: " << QString::number(closeCode);
+        qWarning() << "ServerError: " << QString::number(closeCode);
     });
     connect(m_websocket_server.data(), &QWebSocketServer::peerVerifyError,
             [](const QSslError &error) {
-        qDebug() << "PeerVerifyError: " << error.errorString();
+        qWarning() << "PeerVerifyError: " << error.errorString();
     });
 
     Q_ASSERT(m_websocket_server->listen(QHostAddress::Any, port) &&
@@ -65,20 +67,17 @@ WebsocketServer::~WebsocketServer() {
 void WebsocketServer::onNewConnection() {
     QWebSocket *socket = m_websocket_server->nextPendingConnection();
 
+    QMutexLocker l(&m_socket_mutex);
     connect(socket, &QWebSocket::textMessageReceived,
             this, &WebsocketServer::processTextMessage);
     connect(socket, &QWebSocket::disconnected,
             this, &WebsocketServer::socketDisconnected);
-    //connect(pSocket, &QWebSocket::pong, this, &WebsocketServer::processPong);
-    connect(socket, &QWebSocket::binaryMessageReceived, [](const QByteArray &message) {
-        qDebug() << "onBinaryMessage" << message;
-    });
-    void (QWebSocket::*error)(QAbstractSocket::SocketError) = &QWebSocket::error;
+    void (QWebSocket::*error)(QAbstractSocket::SocketError) =
+            &QWebSocket::error;
     connect(socket, error, [](QAbstractSocket::SocketError error) {
-        qDebug() << "onError" << QString::number(error);
+        qWarning() << "onError" << QString::number(error);
     });
 
-    QMutexLocker l(&m_socket_mutex);
     if (!m_socket.isNull()) {
         qWarning() << "There is already a client connected!";
     }
@@ -100,7 +99,6 @@ void WebsocketServer::sendMessage(const QString &type,
     json_message[kMessageType] = type;
     json_message[kPayload] = payload;
 
-    // Sends it.
     QJsonDocument document(json_message);
     QString message = QString::fromUtf8(document.toJson());
 
@@ -115,8 +113,9 @@ void WebsocketServer::sendMessage(const QString &type,
 }
 
 void WebsocketServer::processTextMessage(QString message) {
-    // Checks if the socket matches.
     QWebSocket *socket = qobject_cast<QWebSocket *>(sender());
+
+    // Checks if the socket matches.
     if (socket != m_socket.data()) {
         qWarning() << "Message from wrong socket. Ignoring.";
         return;
@@ -157,9 +156,6 @@ void WebsocketServer::socketDisconnected() {
     }
     socket->deleteLater();
 
+    l.unlock();
     emit clientDisconnected();
-}
-
-void WebsocketServer::onSslErrors(const QList<QSslError> &) {
-    qDebug() << "Ssl errors occurred";
 }

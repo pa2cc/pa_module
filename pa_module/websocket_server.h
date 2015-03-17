@@ -1,13 +1,10 @@
 #ifndef WEBSOCKET_SERVER_H
 #define WEBSOCKET_SERVER_H
 
-#include <QtCore/QByteArray>
-#include <QtCore/QList>
 #include <QtCore/QMutex>
-#include <QtCore/QObject>
 #include <QtCore/QScopedPointer>
+#include <QtCore/QString>
 #include <QtCore/QStringList>
-#include <QtNetwork/QSslError>
 
 #include "control_server.h"
 
@@ -27,10 +24,10 @@ private Q_SLOTS:
     void onNewConnection();
     void processTextMessage(QString message);
     void socketDisconnected();
-    void onSslErrors(const QList<QSslError> &errors);
 
 private:
     QScopedPointer<QWebSocketServer> m_websocket_server;
+
     QMutex m_socket_mutex;
     QScopedPointer<QWebSocket> m_socket;
     QStringList m_pending_messages;
