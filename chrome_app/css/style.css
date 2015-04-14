@@ -41,11 +41,11 @@ section .status .help {
 }
 
 .yes {
-    background: transparent url(../res/yes.png) no-repeat right 2px;
+    background: transparent url(../res/yes.png) no-repeat right 4px;
     padding: 0 23px;
 }
 .no {
-    background: transparent url(../res/no.png) no-repeat right 2px;
+    background: transparent url(../res/no.png) no-repeat right 4px;
     padding: 0 23px;
 }
 
