@@ -11,6 +11,8 @@
 #include <QtWebSockets/QWebSocketServer>
 
 namespace {
+const QString kWebsocketCertPath = WEBSOCKET_CERT_PATH;
+
 // Names used for a websocket JSON object.
 const QString kMessageType = "type";
 const QString kPayload = "data";
@@ -22,15 +24,24 @@ WebsocketServer::WebsocketServer(quint16 port)
                                               QWebSocketServer::SecureMode))
 {
     QSslConfiguration sslConfiguration;
-    QFile cert_file(":/certs/localhost.crt");
+    QFile cert_file(kWebsocketCertPath + "/localhost.crt");
     cert_file.open(QIODevice::ReadOnly);
     QSslCertificate certificate(&cert_file, QSsl::Pem);
     cert_file.close();
 
-    QFile key_file(":/certs/localhost.key");
+    QFile key_file(kWebsocketCertPath + "/localhost.key");
     key_file.open(QIODevice::ReadOnly);
     QSslKey ssl_key(&key_file, QSsl::Rsa, QSsl::Pem);
     key_file.close();
+
+    if (certificate.isNull() || ssl_key.isNull()) {
+        qCritical() << QString("The websocket certificate could not be loaded. "
+                               "Please verify that localhost.crt and "
+                               "localhost.key exist in %s and are readable by "
+                               "the pacc module.")
+                       .arg(kWebsocketCertPath);
+        exit(1);
+    }
 
     sslConfiguration.setPeerVerifyMode(QSslSocket::VerifyNone);
     sslConfiguration.setLocalCertificate(certificate);

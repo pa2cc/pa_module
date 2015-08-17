@@ -40,8 +40,9 @@ SOURCES += \
     websocket_server.cpp \
     writer_base.cpp
 
-RESOURCES += \
-    res/pa_sink.qrc
+debug {
+    DEFINES += WEBSOCKET_CERT_PATH=\\\"$$PWD/res\\\"
+}
 
 unix {
     target.path = /usr/lib/pulse-6.0/modules/
