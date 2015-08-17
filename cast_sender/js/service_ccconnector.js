@@ -153,8 +153,6 @@ function($rootScope, PAConnector){
                 self.connected = false;
             });
             session = null;
-            var playpauseresume = document.getElementById('playpauseresume');
-            playpauseresume.innerHTML = 'Play Media';
         }
     }
 
