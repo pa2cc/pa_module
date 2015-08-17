@@ -54,7 +54,7 @@ function($rootScope, PAConnector) {
 
     // Event listeners.
     $rootScope.$on('PAConnector:onPASessionDescription', function(event, paSessionDescription) {
-        if (pc.remoteDescription) {
+        if (pc.remoteDescription && pc.remoteDescription.sdp) {
             return;
         }
         
