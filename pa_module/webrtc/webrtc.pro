@@ -11,6 +11,7 @@ CONFIG += \
     c++11
 
 DEFINES += \
+    QT_FORCE_ASSERTS \
     QT_NO_EMIT \ # Conflicts with webrtc where emit is used as a function name.
     QT_NO_SIGNALS_SLOTS_KEYWORDS \ # Conflicts with PA where slots is used as a variable name.
 
