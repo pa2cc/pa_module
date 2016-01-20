@@ -110,7 +110,7 @@ HEADERS += \
     writer_webrtc_priv.h \
 
 SOURCES += \
-    conductor.cc \
+    conductor.cpp \
     control_server_handler.cpp \
     pa_audio_device_module.cpp \
     writer_webrtc.cpp \
