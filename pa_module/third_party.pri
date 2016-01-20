@@ -6,7 +6,8 @@
 # WebRTC:     Check out http://www.webrtc.org/native-code/development for how to
 #             get and build the source.
 
-PULSEAUDIO_BASE = $$PWD/../third_party/pulseaudio-6.0
+PULSEAUDIO_VERSION = 7.1
+PULSEAUDIO_BASE = $$PWD/../third_party/pulseaudio-$${PULSEAUDIO_VERSION}
 WEBRTC_BASE = $$PWD/../third_party/webrtc
 
 

@@ -15,7 +15,7 @@ Therefore, you need to build PACC yourself:
 1. Download the PACC source to `[pacc_root]`.
 2. Get the Pulseaudio source from
    http://freedesktop.org/software/pulseaudio/releases into
-   `[pacc_root]/third_party/pulseaudio-6.0/`.
+   `[pacc_root]/third_party/pulseaudio-X.Y/`.
     * Check how your distro built the library - do a call to `./configure`.
 3. Check out http://www.webrtc.org/native-code/development for how to get and
    build the WebRTC source.
@@ -25,7 +25,7 @@ Therefore, you need to build PACC yourself:
 5. Build the Pulseaudio module (in `[pacc_root]/pa_module`)
     * `qmake pa_module_subdir.pro`
     * `make`
-    * `mv libpa_module.so /usr/lib/pulse-6.0/modules/module-pacc-sink.so`
+    * `mv libpa_module.so /usr/lib/pulse-X.Y/modules/module-pacc-sink.so`
 6. Ensure that the PACC Pulseaudio module is automatically loaded.
     * `echo "load-module module-pacc-sink" >> /etc/pulse/default.pa`
     * `pactl load-module module-pacc-sink`

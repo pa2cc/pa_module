@@ -44,10 +44,10 @@ debug {
     DEFINES += WEBSOCKET_CERT_PATH=\\\"$$PWD/res\\\"
 }
 
-unix {
-    target.path = /usr/lib/pulse-6.0/modules/
-    INSTALLS += target
-}
-
 include(third_party.pri)
 include(webrtc/webrtc.pri)
+
+unix {
+    target.path = /usr/lib/pulse-$${PULSEAUDIO_VERSION}/modules/
+    INSTALLS += target
+}
