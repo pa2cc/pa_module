@@ -1,3 +1,13 @@
+# Deprecated
+
+```diff
+- This sub-project is deprecated as cast_sender and cast_receiver can operate without it.
+```
+ - <https://github.com/pa2cc/cast_sender/>
+ - <https://github.com/pa2cc/cast_receiver/>
+
+<br><br><br><br>
+
 # PACC
 
 PACC enables you to use your Chromecast as an output device in Pulseaudio. This 
